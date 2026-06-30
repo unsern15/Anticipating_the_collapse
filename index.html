@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableau de fragilité &amp; grille de paliers</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #151b24; --panel-2: #1c242f; --line: #2a3340;
+    --ink: #e6edf3; --ink-dim: #8b98a8; --ink-faint: #5a6675;
+    --calm: #3fb950; --watch: #d9a441; --stress: #e5534b;
+    --accent: #58a6ff; --live: #2f81f7;
+    --mono: 'SFMono-Regular','JetBrains Mono','Consolas',monospace;
+    --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans);
+    line-height: 1.5; padding: 28px 20px 80px; max-width: 1080px; margin: 0 auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+  h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  h1 .sub { color: var(--ink-faint); font-weight: 400; font-size: 13px; }
+  .asof { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+
+  .tabs { display: flex; gap: 4px; margin: 22px 0 8px; border-bottom: 1px solid var(--line); }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--ink-dim);
+    font-family: var(--sans); font-size: 14px; padding: 10px 16px; cursor: pointer; }
+  .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .view { display: none; } .view.active { display: block; }
+
+  /* Global gauge */
+  .global { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin: 20px 0 26px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .global-score { font-family: var(--mono); font-size: 40px; font-weight: 600; line-height: 1; min-width: 92px; }
+  .global-label { font-size: 13px; color: var(--ink-dim); margin-top: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .global-text { flex: 1; min-width: 240px; font-size: 13.5px; color: var(--ink-dim); }
+  .global-text strong { color: var(--ink); font-weight: 600; }
+  .meter { flex: 1 1 100%; height: 8px; border-radius: 4px;
+    background: linear-gradient(90deg,var(--calm) 0%,var(--watch) 55%,var(--stress) 100%);
+    position: relative; margin-top: 4px; opacity: 0.85; }
+  .meter-mark { position: absolute; top: -4px; width: 3px; height: 16px; background: var(--ink);
+    border-radius: 2px; transform: translateX(-50%); transition: left 0.4s ease; }
+
+  .stage { margin-bottom: 30px; }
+  .stage-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .stage-num { font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .stage-title { font-size: 15px; font-weight: 600; }
+  .stage-desc { font-size: 12.5px; color: var(--ink-dim); margin: 2px 0 14px; max-width: 760px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+    padding: 14px 16px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; }
+  .card-main { grid-column: 1; }
+  .card-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; padding: 1px 6px;
+    border-radius: 4px; text-transform: uppercase; border: 1px solid var(--line); color: var(--ink-dim); }
+  .tag.live { color: var(--live); border-color: rgba(47,129,247,0.4); background: rgba(47,129,247,0.08); }
+  .tag.manual { color: var(--watch); border-color: rgba(217,164,65,0.35); background: rgba(217,164,65,0.07); }
+  .card-desc { font-size: 12px; color: var(--ink-dim); margin-top: 3px; }
+  .card-thresholds { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
+  .card-input { grid-column: 2; grid-row: 1 / span 3; display: flex; flex-direction: column;
+    align-items: flex-end; gap: 6px; min-width: 132px; }
+  .val-row { display: flex; align-items: center; gap: 7px; }
+  input.val { width: 86px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--ink); font-family: var(--mono); font-size: 16px; text-align: right; padding: 6px 8px; }
+  input.val:focus { outline: none; border-color: var(--accent); }
+  input.val.live-filled { color: var(--live); }
+  .unit { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); min-width: 24px; }
+  .status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 5px; font-weight: 600; }
+  .status.calm { color: var(--calm); background: rgba(63,185,80,0.1); }
+  .status.watch { color: var(--watch); background: rgba(217,164,65,0.12); }
+  .status.stress { color: var(--stress); background: rgba(229,83,75,0.12); }
+  .status.empty { color: var(--ink-faint); background: transparent; border: 1px dashed var(--line); }
+
+  .actions { display: flex; gap: 10px; margin: 8px 0 18px; flex-wrap: wrap; }
+  button.act { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--sans); font-size: 13px; padding: 9px 16px; border-radius: 7px; cursor: pointer; transition: border-color .15s; }
+  button.act:hover { border-color: var(--accent); }
+  button.act.primary { background: rgba(47,129,247,0.12); border-color: rgba(47,129,247,0.4); color: var(--accent); }
+  button.act:disabled { opacity: .5; cursor: default; }
+  .fetch-note { font-size: 12px; color: var(--ink-dim); font-family: var(--mono); margin-bottom: 18px; min-height: 16px; }
+  .fetch-note.err { color: var(--stress); } .fetch-note.ok { color: var(--calm); }
+  .saved-flash { font-size: 11px; color: var(--calm); font-family: var(--mono); opacity: 0; transition: opacity .3s; }
+  .saved-flash.show { opacity: 1; }
+
+  /* ---- Grille de paliers ---- */
+  .config-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  .config-box { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; flex: 1; min-width: 160px; }
+  .config-box label { display: block; font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .config-box input { width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--ink); font-family: var(--mono); font-size: 16px; padding: 7px 9px; }
+  .config-box input:focus { outline: none; border-color: var(--accent); }
+  .config-box .hint { font-size: 10.5px; color: var(--ink-faint); margin-top: 5px; }
+
+  .palier { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+    padding: 14px 16px; margin-bottom: 10px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 16px; align-items: center; }
+  .palier.armed { border-left: 3px solid var(--watch); }
+  .palier.triggered { border-left: 3px solid var(--calm); opacity: 0.92; }
+  .pal-trigger { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .pal-detail { font-size: 12.5px; color: var(--ink-dim); }
+  .pal-detail b { color: var(--ink); }
+  .pal-amount { font-family: var(--mono); font-size: 15px; text-align: right; }
+  .pal-amount .eur { color: var(--accent); }
+  .pal-state { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .pal-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 5px; }
+  .pal-badge.armed { color: var(--watch); background: rgba(217,164,65,0.12); }
+  .pal-badge.triggered { color: var(--calm); background: rgba(63,185,80,0.12); }
+  .pal-toggle { font-family: var(--sans); font-size: 11px; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink-dim); border-radius: 5px; padding: 4px 8px; cursor: pointer; }
+  .pal-toggle:hover { border-color: var(--accent); color: var(--ink); }
+
+  .level-calc { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; margin: 4px 0 22px; }
+  .level-calc h4 { font-size: 13px; margin-bottom: 8px; }
+  .level-calc .row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 13px; padding: 3px 0; color: var(--ink-dim); }
+  .level-calc .row b { color: var(--ink); }
+  .ath-input { width: 110px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--ink); font-family: var(--mono); font-size: 14px; text-align: right; padding: 5px 8px; }
+  .ath-input:focus { outline: none; border-color: var(--accent); }
+
+  .guardrail { background: rgba(217,164,65,0.06); border: 1px solid rgba(217,164,65,0.25); border-radius: 9px;
+    padding: 13px 16px; font-size: 12.5px; color: var(--ink-dim); margin-bottom: 22px; }
+  .guardrail b { color: var(--watch); }
+
+  .legend { border-top: 1px solid var(--line); margin-top: 30px; padding-top: 18px; font-size: 12.5px; color: var(--ink-dim); }
+  .legend h3 { font-size: 13px; color: var(--ink); margin-bottom: 8px; font-weight: 600; }
+  .legend p { margin-bottom: 8px; max-width: 820px; }
+  .legend code { font-family: var(--mono); color: var(--accent); font-size: 11.5px; }
+  .src { display: block; margin-top: 2px; }
+  .src a { color: var(--ink-faint); text-decoration: none; font-family: var(--mono); font-size: 11px; }
+  .src a:hover { color: var(--accent); }
+  .disclaimer { font-size: 11.5px; color: var(--ink-faint); margin-top: 16px; font-style: italic; }
+
+  @media (max-width: 640px) {
+    body { padding: 20px 14px 60px; }
+    .card { grid-template-columns: 1fr; }
+    .card-input { grid-column: 1; grid-row: auto; align-items: flex-start; margin-top: 8px; }
+    .palier { grid-template-columns: 1fr 1fr; }
+    .global-score { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Fragilité &amp; paliers <span class="sub">/ marché actions US · S&amp;P 500</span></h1>
+    <div class="asof" id="asof">—</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="frag">Tableau de fragilité</button>
+    <button class="tab" data-view="grid">Grille de paliers</button>
+  </div>
+
+  <!-- ============ VUE 1 : FRAGILITÉ ============ -->
+  <div class="view active" id="view-frag">
+    <div class="global">
+      <div>
+        <div class="global-score" id="globalScore">—</div>
+        <div class="global-label" id="globalLabel">en attente</div>
+      </div>
+      <div class="global-text" id="globalText">
+        Renseigne les indicateurs. Le score agrège la <strong>fragilité structurelle</strong> (combustible) et le <strong>stress de marché</strong> (étincelle). Structure haute + stress nul = tendu mais calme. Le déclenchement vient de l'étage stress.
+      </div>
+      <div class="meter"><div class="meter-mark" id="meterMark" style="left:0%"></div></div>
+    </div>
+    <div class="actions">
+      <button class="act primary" id="fetchBtn">Récupérer les données live</button>
+      <button class="act" id="resetFragBtn">Réinitialiser la saisie</button>
+      <span class="saved-flash" id="savedFrag">enregistré</span>
+    </div>
+    <div class="fetch-note" id="fetchNote"></div>
+    <div class="stage" id="stage1"></div>
+    <div class="stage" id="stage2"></div>
+    <div class="legend">
+      <h3>Comment lire</h3>
+      <p><b style="color:var(--live)">Live</b> : récupéré quand tu cliques « Récupérer les données live ». Si la source ne répond pas (blocage navigateur fréquent), le champ reste manuel.</p>
+      <p><b style="color:var(--watch)">Manuel</b> : pas d'API ouverte fiable, tu saisis depuis la source indiquée. 5 min le week-end. C'est le geste de lecture lui-même.</p>
+      <p>Seuils <code>vert / orange / rouge</code> calibrés sur des niveaux historiques réels. Le score pondère l'étage stress plus fort : c'est lui qui distingue « cher » de « en train de casser ».</p>
+      <p class="disclaimer">Outil de lecture personnel, aucune valeur de conseil. Calibration sur niveaux observés mi-2026, à réexaminer périodiquement.</p>
+    </div>
+  </div>
+
+  <!-- ============ VUE 2 : GRILLE ============ -->
+  <div class="view" id="view-grid">
+    <div class="config-row">
+      <div class="config-box">
+        <label>Poche disponible (€)</label>
+        <input id="pocket" inputmode="decimal" placeholder="3450">
+        <div class="hint">Mise de départ + flux déjà mis de côté. Jamais l'épargne de secours.</div>
+      </div>
+      <div class="config-box">
+        <label>Apport mensuel (€)</label>
+        <input id="monthly" inputmode="decimal" placeholder="500">
+        <div class="hint">Indicatif : la poche grossit, les montants par palier se recalculent quand tu mets à jour la poche.</div>
+      </div>
+      <div class="config-box">
+        <label>Modulation fragilité</label>
+        <input id="fragMod" value="100" inputmode="decimal">
+        <div class="hint">% de la poche rendu disponible. Calme → tu peux baisser (ex. 70). Tendu/stress → 100.</div>
+      </div>
+    </div>
+
+    <div class="level-calc">
+      <h4>Référence de déclenchement</h4>
+      <div class="row"><span>Plus haut glissant 12 mois (S&amp;P 500) <input class="ath-input" id="ath" inputmode="decimal" placeholder="6200"></span></div>
+      <div class="row"><span>Déclenchement</span> <b>clôture hebdomadaire sous le seuil</b></div>
+      <div class="row"><span>Poche allouée après modulation</span> <b id="allocated">—</b></div>
+    </div>
+
+    <div id="paliers"></div>
+
+    <div class="guardrail">
+      <b>Garde-fou (24 mois).</b> Si aucun palier n'est touché dans les 24 mois suivant la mise en place, <b>40%</b> de la poche bascule en achat régulier étalé sur 12 mois sur l'ETF S&amp;P 500. Couverture contre « avoir raison trop tôt et ne jamais déclencher », le mode d'échec le plus probable d'une thèse de krach. Date de mise en place : <input class="ath-input" id="startDate" type="date" style="width:150px"> <span id="guardCountdown" style="color:var(--watch)"></span>
+    </div>
+
+    <div class="actions">
+      <button class="act" id="resetGridBtn">Réinitialiser les paliers</button>
+      <span class="saved-flash" id="savedGrid">enregistré</span>
+    </div>
+
+    <div class="legend">
+      <h3>Logique de la grille</h3>
+      <p>Tu décides les seuils à froid, le <b>prix</b> déclenche, pas ton jugement du moment. Tu ne vises pas le plancher, tu engages par paliers back-loaded : peu tôt, plus fort en profondeur, où l'asymétrie de rendement est meilleure.</p>
+      <p><b>Support :</b> ETF S&amp;P 500 capitalisant en PEA (exonération après 5 ans). Pas de Nasdaq : éviter d'acheter la concentration tech que la thèse juge risquée, et avoir un meilleur thermomètre du repli réel.</p>
+      <p>Le tableau de fragilité ne déclenche pas les achats : il module seulement la <b>part de poche</b> que tu rends disponible. Robinet de munition, pas gâchette.</p>
+      <p class="disclaimer">Aucune valeur de conseil en investissement. Les seuils sont des repères que tu possèdes, pas des signaux. Marque « touché » manuellement après confirmation d'une clôture hebdo sous le seuil.</p>
+    </div>
+  </div>
+
+<script>
+// ===================== FRAGILITÉ =====================
+const INDICATORS = {
+  concentration: { stage:1, name:"Concentration top 10 (S&P 500)", unit:"%", dir:"up",
+    desc:"Poids des 10 plus grosses capi. Plus c'est haut, plus l'indice dépend d'une poignée de valeurs.",
+    zones:[35,42], thresholds:"calme < 35 · vigilance 35–42 · stress > 42 — réf. moy. hist ~24%, top 10 ~40% mi-2026",
+    mode:"manual", source:"slickcharts.com/sp500 (somme des 10 premiers)", sourceUrl:"https://www.slickcharts.com/sp500" },
+  buffett: { stage:1, name:"Buffett indicator (cap / PIB)", unit:"%", dir:"up",
+    desc:"Capitalisation US totale / PIB. Jauge de cherté absolue du marché.",
+    zones:[150,200], thresholds:"calme < 150 · vigilance 150–200 · stress > 200 — réf. ~214–232% (29/06/2026)",
+    mode:"manual", source:"currentmarketvaluation.com", sourceUrl:"https://www.currentmarketvaluation.com/models/buffett-indicator.php" },
+  ipo: { stage:1, name:"Canal IPO / private (sentiment de sortie)", unit:"/5", dir:"down",
+    desc:"Note 1 à 5 : 5 = IPO au prix visé qui performent ; 1 = décotées, reportées, down-rounds.",
+    zones:[3,2], thresholds:"calme 4–5 · vigilance 3 · stress 1–2 — réf. SpaceX -25/30% post-IPO, OpenAI repoussé",
+    mode:"manual", source:"Suivi qualitatif : perf des dernières IPO tech", sourceUrl:"" },
+  hyStruct: { stage:1, name:"Spread high yield (niveau)", unit:"%", dir:"up",
+    desc:"Surprime exigée sur la dette pourrie vs Treasuries. Serré = l'argent coule, rien ne casse.",
+    zones:[4,5.5], thresholds:"calme < 4 · vigilance 4–5,5 · stress > 5,5 — réf. 2,78% (juin 2026), 10,9% (2020), 19,9% (2008)",
+    mode:"manual", source:"FRED série BAMLH0A0HYM2", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
+  vix: { stage:2, name:"VIX (volatilité implicite)", unit:"", dir:"up",
+    desc:"Stress immédiat pricé par les options. Calme sous 15, panique au-dessus de 30.",
+    zones:[20,30], thresholds:"calme < 20 · vigilance 20–30 · stress > 30 — réf. 16,4 (juin 2026), 82,7 (mars 2020)",
+    mode:"live", source:"FRED série VIXCLS", sourceUrl:"https://fred.stlouisfed.org/series/VIXCLS" },
+  vixTerm: { stage:2, name:"Structure de terme VIX (VIX9D − VIX)", unit:"pts", dir:"up",
+    desc:"Vol court − vol moyenne. Positif = stress immédiat > futur : événement en cours, pas anticipé.",
+    zones:[0,3], thresholds:"calme < 0 · vigilance 0–3 · stress > 3 — l'inversion (passage positif) est le signal",
+    mode:"manual", source:"cboe.com (VIX9D − VIX)", sourceUrl:"https://www.cboe.com/tradable_products/vix/" },
+  hyAccel: { stage:2, name:"Spread HY — variation 5 jours", unit:"pb", dir:"up",
+    desc:"Vitesse d'élargissement du spread (points de base sur 5 séances). La dérivée, pas le niveau.",
+    zones:[25,60], thresholds:"calme < 25 · vigilance 25–60 · stress > 60 — saut rapide = stress en cours",
+    mode:"manual", source:"FRED BAMLH0A0HYM2 (jour − 5 séances, ×100)", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
+  breadth: { stage:2, name:"Largeur de marché (% > MM200j)", unit:"%", dir:"down",
+    desc:"Part des valeurs S&P 500 au-dessus de leur MM 200j. Indice qui tient sur 5 valeurs = cassure proche.",
+    zones:[50,35], thresholds:"calme > 50 · vigilance 35–50 · stress < 35 — divergence indice/masse = danger",
+    mode:"manual", source:"barchart.com (S&P 500 % above 200-day MA)", sourceUrl:"https://www.barchart.com/stocks/momentum" }
+};
+const STAGE_META = {
+  1:{num:"01",title:"Fragilité structurelle",desc:"Monte lentement, des mois avant un retournement. Dit « le combustible s'accumule », jamais « maintenant ». Lecture mensuelle."},
+  2:{num:"02",title:"Stress / déclenchement",desc:"Plat des années puis explose en quelques jours. Confirme que ça a commencé. Lecture hebdo."}
+};
+const STATUS_LABEL = {calm:"calme",watch:"vigilance",stress:"stress",empty:"—"};
+const SCORE = {calm:0,watch:1,stress:2,empty:null};
+let fragState = {};
+
+function classify(ind,v){
+  if(v===null||v===""||isNaN(v)) return "empty";
+  v=parseFloat(v); const [a,b]=ind.zones;
+  if(ind.dir==="up"){ if(v<a)return"calm"; if(v<b)return"watch"; return"stress"; }
+  else { if(v>a)return"calm"; if(v>b)return"watch"; return"stress"; }
+}
+function renderStage(n){
+  const meta=STAGE_META[n], el=document.getElementById("stage"+n);
+  let html=`<div class="stage-head"><span class="stage-num">${meta.num}</span><span class="stage-title">${meta.title}</span></div><div class="stage-desc">${meta.desc}</div>`;
+  for(const [id,ind] of Object.entries(INDICATORS)){
+    if(ind.stage!==n) continue;
+    const st=fragState[id]||{}, cls=classify(ind,st.value), lc=st.isLive?"live-filled":"";
+    const srcHtml=ind.sourceUrl?`<span class="src"><a href="${ind.sourceUrl}" target="_blank" rel="noopener">↗ ${ind.source}</a></span>`:`<span class="src" style="color:var(--ink-faint);font-family:var(--mono);font-size:11px">${ind.source}</span>`;
+    html+=`<div class="card"><div class="card-main"><div class="card-name">${ind.name}<span class="tag ${ind.mode}">${ind.mode==="live"?"live":"manuel"}</span></div><div class="card-desc">${ind.desc}</div><div class="card-thresholds">${ind.thresholds}</div>${srcHtml}</div><div class="card-input"><div class="val-row"><input class="val ${lc}" id="in_${id}" inputmode="decimal" value="${st.value!==undefined&&st.value!==null?st.value:""}" placeholder="—" data-id="${id}"><span class="unit">${ind.unit}</span></div><span class="status ${cls}" id="st_${id}">${STATUS_LABEL[cls]}</span></div></div>`;
+  }
+  el.innerHTML=html;
+}
+function recomputeFrag(){
+  let sum=0,n=0,stressCount=0,structSum=0,structN=0;
+  for(const [id,ind] of Object.entries(INDICATORS)){
+    const st=fragState[id]||{}, cls=classify(ind,st.value);
+    const stEl=document.getElementById("st_"+id);
+    if(stEl){stEl.className="status "+cls; stEl.textContent=STATUS_LABEL[cls];}
+    const inEl=document.getElementById("in_"+id);
+    if(inEl) inEl.classList.toggle("live-filled",!!st.isLive);
+    if(SCORE[cls]!==null){
+      const w=ind.stage===2?1.6:1.0; sum+=SCORE[cls]*w; n+=w;
+      if(ind.stage===1){structSum+=SCORE[cls];structN++;}
+      if(cls==="stress")stressCount++;
+    }
+  }
+  const scoreEl=document.getElementById("globalScore"),labelEl=document.getElementById("globalLabel"),
+    textEl=document.getElementById("globalText"),mark=document.getElementById("meterMark");
+  if(n===0){scoreEl.textContent="—";labelEl.textContent="en attente";mark.style.left="0%";return;}
+  const norm=sum/(n*2), pct=Math.round(norm*100);
+  scoreEl.textContent=pct; mark.style.left=pct+"%";
+  let label,color,msg;
+  const structHigh=structN>0&&(structSum/structN)>=1.3;
+  if(norm<0.33){label="calme";color="var(--calm)";}
+  else if(norm<0.6){label="tendu";color="var(--watch)";}
+  else{label="stress";color="var(--stress)";}
+  scoreEl.style.color=color; labelEl.style.color=color; labelEl.textContent=label;
+  if(stressCount===0&&structHigh) msg=`<strong>Beaucoup de combustible, pas d'étincelle.</strong> Structure tendue, aucun stress allumé. Haut de cycle : thèse étayée mais rien ne déclenche. <strong>Arme la réserve</strong>, ne l'engage pas.`;
+  else if(stressCount>=2) msg=`<strong>${stressCount} signaux de stress allumés.</strong> La mécanique se grippe. La grille de paliers doit s'exécuter mécaniquement sur le prix, sans réinterprétation.`;
+  else if(stressCount===1) msg=`<strong>Un signal de stress isolé.</strong> Possible faux signal. Attendre un 2e avant de considérer que ça a commencé.`;
+  else msg=`Structure et stress modérés. Rien d'actionnable. Un outil de lecture est ennuyeux 90% du temps : c'est qu'il marche.`;
+  textEl.innerHTML=msg;
+}
+function attachFragInputs(){
+  document.querySelectorAll("#view-frag input.val").forEach(inp=>{
+    inp.addEventListener("input",e=>{
+      const id=e.target.dataset.id;
+      fragState[id]={value:e.target.value===""?null:e.target.value,isLive:false};
+      recomputeFrag(); saveAll(); flash("savedFrag");
+    });
+  });
+}
+function renderFrag(){ renderStage(1); renderStage(2); attachFragInputs(); recomputeFrag(); }
+
+async function fetchLive(){
+  const note=document.getElementById("fetchNote"),btn=document.getElementById("fetchBtn");
+  note.className="fetch-note"; note.textContent="Récupération en cours…"; btn.disabled=true;
+  let got=[];
+  try{
+    const r=await fetch("https://stooq.com/q/l/?s=^vix&f=sd2t2c&h&e=csv",{cache:"no-store"});
+    const txt=await r.text(), lines=txt.trim().split("\n"), cols=lines[1].split(",");
+    const close=parseFloat(cols[3]);
+    if(!isNaN(close)&&close>0){
+      fragState.vix={value:close.toFixed(2),isLive:true};
+      document.getElementById("in_vix").value=close.toFixed(2); got.push("VIX");
+    }
+  }catch(e){}
+  recomputeFrag(); saveAll(); btn.disabled=false;
+  if(got.length){note.className="fetch-note ok";note.textContent="Live OK : "+got.join(", ")+". Les autres restent en saisie manuelle (sources sous chaque champ).";}
+  else{note.className="fetch-note err";note.textContent="Source live indisponible (blocage navigateur fréquent). Tout passe en manuel, le mode le plus robuste. Ouvre les liens sources.";}
+}
+
+// ===================== GRILLE =====================
+const PALIERS_DEF = [
+  {pct:15, alloc:0.15},
+  {pct:25, alloc:0.25},
+  {pct:35, alloc:0.30},
+  {pct:50, alloc:0.30}
+];
+let gridState = { pocket:"", monthly:"", fragMod:"100", ath:"", startDate:"", triggered:[false,false,false,false] };
+
+function renderGrid(){
+  document.getElementById("pocket").value=gridState.pocket||"";
+  document.getElementById("monthly").value=gridState.monthly||"";
+  document.getElementById("fragMod").value=gridState.fragMod||"100";
+  document.getElementById("ath").value=gridState.ath||"";
+  document.getElementById("startDate").value=gridState.startDate||"";
+
+  const pocket=parseFloat(gridState.pocket)||0;
+  const mod=(parseFloat(gridState.fragMod)||100)/100;
+  const allocated=pocket*mod;
+  const ath=parseFloat(gridState.ath)||0;
+  document.getElementById("allocated").textContent = allocated?allocated.toFixed(0)+" €":"—";
+
+  let html="";
+  PALIERS_DEF.forEach((p,i)=>{
+    const eur=allocated*p.alloc;
+    const level= ath? (ath*(1-p.pct/100)).toFixed(0) : null;
+    const trig=gridState.triggered[i];
+    html+=`<div class="palier ${trig?'triggered':'armed'}">
+      <div class="pal-trigger">-${p.pct}%</div>
+      <div class="pal-detail">${Math.round(p.alloc*100)}% de la poche allouée${level?` · seuil S&P 500 ≈ <b>${level}</b>`:``}</div>
+      <div class="pal-amount">${eur?`<span class="eur">${eur.toFixed(0)} €</span>`:`—`}</div>
+      <div class="pal-state">
+        <span class="pal-badge ${trig?'triggered':'armed'}">${trig?'touché':'armé'}</span>
+        <button class="pal-toggle" data-i="${i}">${trig?'annuler':'marquer touché'}</button>
+      </div>
+    </div>`;
+  });
+  document.getElementById("paliers").innerHTML=html;
+
+  document.querySelectorAll(".pal-toggle").forEach(b=>{
+    b.addEventListener("click",e=>{
+      const i=+e.target.dataset.i;
+      gridState.triggered[i]=!gridState.triggered[i];
+      renderGrid(); saveAll(); flash("savedGrid");
+    });
+  });
+
+  // countdown garde-fou
+  const cd=document.getElementById("guardCountdown");
+  if(gridState.startDate){
+    const start=new Date(gridState.startDate);
+    const end=new Date(start); end.setMonth(end.getMonth()+24);
+    const now=new Date();
+    const anyTrig=gridState.triggered.some(t=>t);
+    if(anyTrig){ cd.textContent="· un palier touché, garde-fou levé"; cd.style.color="var(--calm)"; }
+    else {
+      const months=Math.max(0,Math.round((end-now)/(1000*60*60*24*30.44)));
+      cd.textContent=`· ${months} mois avant bascule DCA`; cd.style.color="var(--watch)";
+    }
+  } else cd.textContent="";
+}
+function attachGridInputs(){
+  ["pocket","monthly","fragMod","ath","startDate"].forEach(id=>{
+    document.getElementById(id).addEventListener("input",e=>{
+      gridState[id]=e.target.value; renderGrid(); saveAll(); flash("savedGrid");
+    });
+  });
+}
+
+// ===================== PERSISTANCE =====================
+const KEY="fragilite_grille_v1";
+function saveAll(){
+  try{ localStorage.setItem(KEY,JSON.stringify({frag:fragState,grid:gridState,ts:Date.now()})); }catch(e){}
+}
+function loadAll(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){ const d=JSON.parse(raw); if(d.frag)fragState=d.frag; if(d.grid)gridState=Object.assign(gridState,d.grid); }
+  }catch(e){}
+}
+let flashTimers={};
+function flash(id){
+  const el=document.getElementById(id); if(!el)return;
+  el.classList.add("show"); clearTimeout(flashTimers[id]);
+  flashTimers[id]=setTimeout(()=>el.classList.remove("show"),1200);
+}
+
+// ===================== TABS =====================
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById("view-"+t.dataset.view).classList.add("active");
+  });
+});
+
+// reset
+document.getElementById("resetFragBtn").addEventListener("click",()=>{
+  fragState={}; renderFrag(); saveAll(); document.getElementById("fetchNote").textContent="";
+});
+document.getElementById("resetGridBtn").addEventListener("click",()=>{
+  gridState.triggered=[false,false,false,false]; renderGrid(); saveAll();
+});
+document.getElementById("fetchBtn").addEventListener("click",fetchLive);
+
+// init
+loadAll();
+renderFrag();
+renderGrid();
+attachGridInputs();
+document.getElementById("asof").textContent="màj : "+new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});
+</script>
+</body>
+</html>
