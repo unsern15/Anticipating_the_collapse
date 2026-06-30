@@ -147,6 +147,7 @@
     <h1>Fragilité &amp; paliers <span class="sub">/ marché actions US · S&amp;P 500</span></h1>
     <div class="asof" id="asof">—</div>
   </div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:right;margin-top:2px">v4 · virgule + point</div>
 
   <div class="tabs">
     <button class="tab active" data-view="frag">Tableau de fragilité</button>
@@ -273,11 +274,18 @@ const STATUS_LABEL = {calm:"calme",watch:"vigilance",stress:"stress",empty:"—"
 const SCORE = {calm:0,watch:1,stress:2,empty:null};
 let fragState = {};
 
+// Accepte la virgule comme séparateur décimal (format FR) aussi bien que le point.
+function num(v){
+  if(v===null||v===undefined||v==="") return NaN;
+  return parseFloat(String(v).replace(",","."));
+}
+
 function classify(ind,v){
-  if(v===null||v===""||isNaN(v)) return "empty";
-  v=parseFloat(v); const [a,b]=ind.zones;
-  if(ind.dir==="up"){ if(v<a)return"calm"; if(v<b)return"watch"; return"stress"; }
-  else { if(v>a)return"calm"; if(v>b)return"watch"; return"stress"; }
+  const x = num(v);
+  if(isNaN(x)) return "empty";
+  const [a,b]=ind.zones;
+  if(ind.dir==="up"){ if(x<a)return"calm"; if(x<b)return"watch"; return"stress"; }
+  else { if(x>a)return"calm"; if(x>b)return"watch"; return"stress"; }
 }
 function renderStage(n){
   const meta=STAGE_META[n], el=document.getElementById("stage"+n);
@@ -291,30 +299,43 @@ function renderStage(n){
   el.innerHTML=html;
 }
 function recomputeFrag(){
-  let sum=0,n=0,stressCount=0,structSum=0,structN=0;
+  // sum/maxSum = score normalisé sur le total des indicateurs (pas seulement les remplis).
+  // Un champ vide compte comme neutre : il occupe sa place au dénominateur mais ajoute 0,
+  // ce qui empêche un étage à moitié rempli de fausser le score vers le haut.
+  let sum=0, maxSum=0, filled=0, total=0, stressCount=0, structSum=0, structFilled=0, stage2Filled=0;
   for(const [id,ind] of Object.entries(INDICATORS)){
     const st=fragState[id]||{}, cls=classify(ind,st.value);
     const stEl=document.getElementById("st_"+id);
     if(stEl){stEl.className="status "+cls; stEl.textContent=STATUS_LABEL[cls];}
     const inEl=document.getElementById("in_"+id);
     if(inEl) inEl.classList.toggle("live-filled",!!st.isLive);
-    if(SCORE[cls]!==null){
-      const w=ind.stage===2?1.6:1.0; sum+=SCORE[cls]*w; n+=w;
-      if(ind.stage===1){structSum+=SCORE[cls];structN++;}
+    const w=ind.stage===2?1.6:1.0;
+    total++; maxSum+=2*w; // chaque indicateur peut valoir au max 2 (stress)
+    if(cls!=="empty"){
+      filled++; sum+=SCORE[cls]*w;
+      if(ind.stage===1){structSum+=SCORE[cls];structFilled++;}
+      if(ind.stage===2) stage2Filled++;
       if(cls==="stress")stressCount++;
     }
   }
   const scoreEl=document.getElementById("globalScore"),labelEl=document.getElementById("globalLabel"),
     textEl=document.getElementById("globalText"),mark=document.getElementById("meterMark");
-  if(n===0){scoreEl.textContent="—";labelEl.textContent="en attente";mark.style.left="0%";return;}
-  const norm=sum/(n*2), pct=Math.round(norm*100);
+  if(filled===0){scoreEl.textContent="—";labelEl.textContent="en attente";labelEl.style.color="var(--ink-dim)";scoreEl.style.color="var(--ink-dim)";mark.style.left="0%";
+    textEl.innerHTML="Renseigne les indicateurs. Le score agrège la <strong>fragilité structurelle</strong> et le <strong>stress de marché</strong>.";return;}
+  const norm=sum/maxSum, pct=Math.round(norm*100);
   scoreEl.textContent=pct; mark.style.left=pct+"%";
   let label,color,msg;
-  const structHigh=structN>0&&(structSum/structN)>=1.3;
+  const structHigh=structFilled>0&&(structSum/structFilled)>=1.3;
   if(norm<0.33){label="calme";color="var(--calm)";}
   else if(norm<0.6){label="tendu";color="var(--watch)";}
   else{label="stress";color="var(--stress)";}
   scoreEl.style.color=color; labelEl.style.color=color; labelEl.textContent=label;
+  // Garde-fou : si l'étage 2 (stress) n'est pas renseigné, on ne peut pas conclure.
+  if(stage2Filled===0){
+    labelEl.textContent="incomplet"; labelEl.style.color="var(--watch)"; scoreEl.style.color="var(--ink-dim)";
+    msg=`<strong>Étage stress non renseigné.</strong> Le score ne reflète que la structure tant que tu n'as pas saisi l'étage 2 (VIX, breadth...). Remplis-le pour avoir une lecture fiable : un score élevé ici ne veut rien dire sans l'étage stress.`;
+    textEl.innerHTML=msg; return;
+  }
   if(stressCount===0&&structHigh) msg=`<strong>Beaucoup de combustible, pas d'étincelle.</strong> Structure tendue, aucun stress allumé. Haut de cycle : thèse étayée mais rien ne déclenche. <strong>Arme la réserve</strong>, ne l'engage pas.`;
   else if(stressCount>=2) msg=`<strong>${stressCount} signaux de stress allumés.</strong> La mécanique se grippe. La grille de paliers doit s'exécuter mécaniquement sur le prix, sans réinterprétation.`;
   else if(stressCount===1) msg=`<strong>Un signal de stress isolé.</strong> Possible faux signal. Attendre un 2e avant de considérer que ça a commencé.`;
@@ -366,10 +387,10 @@ function renderGrid(){
   document.getElementById("ath").value=gridState.ath||"";
   document.getElementById("startDate").value=gridState.startDate||"";
 
-  const pocket=parseFloat(gridState.pocket)||0;
-  const mod=(parseFloat(gridState.fragMod)||100)/100;
+  const pocket=num(gridState.pocket)||0;
+  const mod=(num(gridState.fragMod)||100)/100;
   const allocated=pocket*mod;
-  const ath=parseFloat(gridState.ath)||0;
+  const ath=num(gridState.ath)||0;
   document.getElementById("allocated").textContent = allocated?allocated.toFixed(0)+" €":"—";
 
   let html="";
