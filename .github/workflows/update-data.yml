@@ -1,0 +1,41 @@
+name: Mise à jour des données
+
+# Le robot tourne chaque soir après la clôture de Wall Street (22 h 37 UTC),
+# du lundi au vendredi. On peut aussi le lancer à la main depuis l'onglet Actions.
+on:
+  schedule:
+    - cron: "37 22 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Récupérer les indicateurs
+        run: python scripts/fetch_data.py
+
+      - name: Enregistrer si quelque chose a changé
+        run: |
+          git config user.name "robot-donnees"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json
+          if git diff --cached --quiet; then
+            echo "Rien de nouveau."
+          else
+            git commit -m "Données du $(date -u +%Y-%m-%d)"
+            git push
+          fi

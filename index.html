@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tableau de fragilité &amp; grille de paliers</title>
+<title>Fragilité &amp; paliers</title>
 <style>
   :root {
     --bg: #0d1117; --panel: #151b24; --panel-2: #1c242f; --line: #2a3340;
@@ -22,14 +22,14 @@
   h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
   h1 .sub { color: var(--ink-faint); font-weight: 400; font-size: 13px; }
   .asof { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+  .asof.stale { color: var(--watch); }
 
-  .tabs { display: flex; gap: 4px; margin: 22px 0 8px; border-bottom: 1px solid var(--line); }
+  .tabs { display: flex; gap: 4px; margin: 22px 0 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--ink-dim);
-    font-family: var(--sans); font-size: 14px; padding: 10px 16px; cursor: pointer; }
+    font-family: var(--sans); font-size: 14px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
   .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
   .view { display: none; } .view.active { display: block; }
 
-  /* Global gauge */
   .global { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
     padding: 18px 20px; margin: 20px 0 26px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
   .global-score { font-family: var(--mono); font-size: 40px; font-weight: 600; line-height: 1; min-width: 92px; }
@@ -55,9 +55,10 @@
   .card-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; padding: 1px 6px;
     border-radius: 4px; text-transform: uppercase; border: 1px solid var(--line); color: var(--ink-dim); }
-  .tag.live { color: var(--live); border-color: rgba(47,129,247,0.4); background: rgba(47,129,247,0.08); }
+  .tag.auto { color: var(--live); border-color: rgba(47,129,247,0.4); background: rgba(47,129,247,0.08); }
   .tag.manual { color: var(--watch); border-color: rgba(217,164,65,0.35); background: rgba(217,164,65,0.07); }
   .card-desc { font-size: 12px; color: var(--ink-dim); margin-top: 3px; }
+  .card-extra { font-family: var(--mono); font-size: 11.5px; color: var(--ink); margin-top: 6px; }
   .card-thresholds { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 6px; }
   .card-input { grid-column: 2; grid-row: 1 / span 3; display: flex; flex-direction: column;
     align-items: flex-end; gap: 6px; min-width: 132px; }
@@ -65,8 +66,9 @@
   input.val { width: 86px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
     color: var(--ink); font-family: var(--mono); font-size: 16px; text-align: right; padding: 6px 8px; }
   input.val:focus { outline: none; border-color: var(--accent); }
-  input.val.live-filled { color: var(--live); }
+  input.val:disabled { color: var(--live); opacity: 1; background: rgba(47,129,247,0.06); border-color: rgba(47,129,247,0.25); }
   .unit { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); min-width: 24px; }
+  .val-date { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
   .status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
     padding: 3px 10px; border-radius: 5px; font-weight: 600; }
   .status.calm { color: var(--calm); background: rgba(63,185,80,0.1); }
@@ -74,19 +76,17 @@
   .status.stress { color: var(--stress); background: rgba(229,83,75,0.12); }
   .status.empty { color: var(--ink-faint); background: transparent; border: 1px dashed var(--line); }
 
-  .actions { display: flex; gap: 10px; margin: 8px 0 18px; flex-wrap: wrap; }
+  .actions { display: flex; gap: 10px; margin: 8px 0 18px; flex-wrap: wrap; align-items: center; }
   button.act { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink);
     font-family: var(--sans); font-size: 13px; padding: 9px 16px; border-radius: 7px; cursor: pointer; transition: border-color .15s; }
   button.act:hover { border-color: var(--accent); }
-  button.act.primary { background: rgba(47,129,247,0.12); border-color: rgba(47,129,247,0.4); color: var(--accent); }
-  button.act:disabled { opacity: .5; cursor: default; }
-  .fetch-note { font-size: 12px; color: var(--ink-dim); font-family: var(--mono); margin-bottom: 18px; min-height: 16px; }
-  .fetch-note.err { color: var(--stress); } .fetch-note.ok { color: var(--calm); }
+  .data-note { font-size: 12px; color: var(--ink-dim); font-family: var(--mono); margin: 4px 0 6px; }
+  .data-note.err { color: var(--watch); }
   .saved-flash { font-size: 11px; color: var(--calm); font-family: var(--mono); opacity: 0; transition: opacity .3s; }
   .saved-flash.show { opacity: 1; }
 
   /* ---- Grille de paliers ---- */
-  .config-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  .config-row { display: flex; gap: 14px; flex-wrap: wrap; margin: 20px 0 22px; }
   .config-box { background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; flex: 1; min-width: 160px; }
   .config-box label { display: block; font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
   .config-box input { width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
@@ -94,10 +94,16 @@
   .config-box input:focus { outline: none; border-color: var(--accent); }
   .config-box .hint { font-size: 10.5px; color: var(--ink-faint); margin-top: 5px; }
 
+  .level-calc { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; margin: 4px 0 22px; }
+  .level-calc h4 { font-size: 13px; margin-bottom: 8px; }
+  .level-calc .row { display: flex; justify-content: space-between; gap: 12px; font-family: var(--mono); font-size: 13px; padding: 3px 0; color: var(--ink-dim); flex-wrap: wrap; }
+  .level-calc .row b { color: var(--ink); }
+
   .palier { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
     padding: 14px 16px; margin-bottom: 10px; display: grid; grid-template-columns: auto 1fr auto auto; gap: 4px 16px; align-items: center; }
-  .palier.armed { border-left: 3px solid var(--watch); }
-  .palier.triggered { border-left: 3px solid var(--calm); opacity: 0.92; }
+  .palier.armed { border-left: 3px solid var(--line); }
+  .palier.reached { border-left: 3px solid var(--watch); }
+  .palier.done { border-left: 3px solid var(--calm); opacity: 0.92; }
   .pal-trigger { font-family: var(--mono); font-size: 22px; font-weight: 600; }
   .pal-detail { font-size: 12.5px; color: var(--ink-dim); }
   .pal-detail b { color: var(--ink); }
@@ -105,20 +111,12 @@
   .pal-amount .eur { color: var(--accent); }
   .pal-state { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .pal-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 3px 9px; border-radius: 5px; }
-  .pal-badge.armed { color: var(--watch); background: rgba(217,164,65,0.12); }
-  .pal-badge.triggered { color: var(--calm); background: rgba(63,185,80,0.12); }
+    padding: 3px 9px; border-radius: 5px; color: var(--ink-dim); background: var(--panel-2); }
+  .pal-badge.reached { color: var(--watch); background: rgba(217,164,65,0.12); }
+  .pal-badge.done { color: var(--calm); background: rgba(63,185,80,0.12); }
   .pal-toggle { font-family: var(--sans); font-size: 11px; background: var(--panel-2); border: 1px solid var(--line);
     color: var(--ink-dim); border-radius: 5px; padding: 4px 8px; cursor: pointer; }
   .pal-toggle:hover { border-color: var(--accent); color: var(--ink); }
-
-  .level-calc { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 14px 16px; margin: 4px 0 22px; }
-  .level-calc h4 { font-size: 13px; margin-bottom: 8px; }
-  .level-calc .row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 13px; padding: 3px 0; color: var(--ink-dim); }
-  .level-calc .row b { color: var(--ink); }
-  .ath-input { width: 110px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
-    color: var(--ink); font-family: var(--mono); font-size: 14px; text-align: right; padding: 5px 8px; }
-  .ath-input:focus { outline: none; border-color: var(--accent); }
 
   .guardrail { background: rgba(217,164,65,0.06); border: 1px solid rgba(217,164,65,0.25); border-radius: 9px;
     padding: 13px 16px; font-size: 12.5px; color: var(--ink-dim); margin-bottom: 22px; }
@@ -129,12 +127,12 @@
   .legend p { margin-bottom: 8px; max-width: 820px; }
   .legend code { font-family: var(--mono); color: var(--accent); font-size: 11.5px; }
   .src { display: block; margin-top: 2px; }
-  .src a { color: var(--ink-faint); text-decoration: none; font-family: var(--mono); font-size: 11px; }
+  .src a, .src span { color: var(--ink-faint); text-decoration: none; font-family: var(--mono); font-size: 11px; }
   .src a:hover { color: var(--accent); }
   .disclaimer { font-size: 11.5px; color: var(--ink-faint); margin-top: 16px; font-style: italic; }
 
   @media (max-width: 640px) {
-    body { padding: 20px 14px 60px; }
+    body { padding: 20px 16px 60px; }
     .card { grid-template-columns: 1fr; }
     .card-input { grid-column: 1; grid-row: auto; align-items: flex-start; margin-top: 8px; }
     .palier { grid-template-columns: 1fr 1fr; }
@@ -144,345 +142,426 @@
 </head>
 <body>
   <div class="topbar">
-    <h1>Fragilité &amp; paliers <span class="sub">/ marché actions US · S&amp;P 500</span></h1>
-    <div class="asof" id="asof">—</div>
+    <h1>Fragilité &amp; paliers <span class="sub">/ Europe · US · Asie</span></h1>
+    <div class="asof" id="asof">chargement…</div>
   </div>
-  <div style="font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:right;margin-top:2px">v4 · virgule + point</div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:right;margin-top:2px">v5 · données automatiques</div>
 
   <div class="tabs">
-    <button class="tab active" data-view="frag">Tableau de fragilité</button>
-    <button class="tab" data-view="grid">Grille de paliers</button>
+    <button class="tab active" data-view="eu">Europe</button>
+    <button class="tab" data-view="us">US</button>
+    <button class="tab" data-view="asia">Asie</button>
+    <button class="tab" data-view="grid">Paliers Stoxx 600</button>
+  </div>
+  <div class="data-note" id="dataNote"></div>
+
+  <!-- ============ EUROPE ============ -->
+  <div class="view active" id="view-eu">
+    <div class="global"><div class="global-text" id="sum-eu"></div></div>
+    <div class="stage" id="stage-eu"></div>
+    <div class="legend">
+      <h3>Pourquoi l'Europe d'abord</h3>
+      <p>C'est là que tu achètes. Ce tableau donne le contexte, mais c'est la <b>grille de paliers</b> qui décide, sur le prix, sans réinterprétation.</p>
+      <p class="disclaimer">Seuils inflation et taux posés en octobre 2026 comme repères de départ, à rediscuter à froid. Aucune valeur de conseil.</p>
+    </div>
   </div>
 
-  <!-- ============ VUE 1 : FRAGILITÉ ============ -->
-  <div class="view active" id="view-frag">
+  <!-- ============ US ============ -->
+  <div class="view" id="view-us">
     <div class="global">
       <div>
-        <div class="global-score" id="globalScore">—</div>
+        <div class="global-score" id="globalScore">n/d</div>
         <div class="global-label" id="globalLabel">en attente</div>
       </div>
-      <div class="global-text" id="globalText">
-        Renseigne les indicateurs. Le score agrège la <strong>fragilité structurelle</strong> (combustible) et le <strong>stress de marché</strong> (étincelle). Structure haute + stress nul = tendu mais calme. Le déclenchement vient de l'étage stress.
-      </div>
+      <div class="global-text" id="globalText"></div>
       <div class="meter"><div class="meter-mark" id="meterMark" style="left:0%"></div></div>
     </div>
     <div class="actions">
-      <button class="act primary" id="fetchBtn">Récupérer les données live</button>
-      <button class="act" id="resetFragBtn">Réinitialiser la saisie</button>
+      <button class="act" id="resetManualBtn">Effacer mes saisies manuelles</button>
       <span class="saved-flash" id="savedFrag">enregistré</span>
     </div>
-    <div class="fetch-note" id="fetchNote"></div>
-    <div class="stage" id="stage1"></div>
-    <div class="stage" id="stage2"></div>
+    <div class="stage" id="stage-us-1"></div>
+    <div class="stage" id="stage-us-2"></div>
+    <div class="stage" id="stage-us-3"></div>
     <div class="legend">
       <h3>Comment lire</h3>
-      <p><b style="color:var(--live)">Live</b> : récupéré quand tu cliques « Récupérer les données live ». Si la source ne répond pas (blocage navigateur fréquent), le champ reste manuel.</p>
-      <p><b style="color:var(--watch)">Manuel</b> : pas d'API ouverte fiable, tu saisis depuis la source indiquée. 5 min le week-end. C'est le geste de lecture lui-même.</p>
-      <p>Seuils <code>vert / orange / rouge</code> calibrés sur des niveaux historiques réels. Le score pondère l'étage stress plus fort : c'est lui qui distingue « cher » de « en train de casser ».</p>
-      <p class="disclaimer">Outil de lecture personnel, aucune valeur de conseil. Calibration sur niveaux observés mi-2026, à réexaminer périodiquement.</p>
+      <p><b style="color:var(--live)">Auto</b> : mis à jour chaque soir par le robot. La date sous la valeur dit de quand date le chiffre.</p>
+      <p><b style="color:var(--watch)">Manuel</b> : pas de source automatique fiable (ou la source n'a pas répondu ce soir). Tu saisis depuis le lien indiqué, une fois par mois suffit.</p>
+      <p>Seuils <code>calme / vigilance / stress</code>. Le score pondère plus fort l'étage stress : c'est lui qui distingue « cher » de « en train de casser ».</p>
+      <p class="disclaimer">Outil de lecture personnel, aucune valeur de conseil. Calibration mi-2026, à réexaminer périodiquement.</p>
     </div>
   </div>
 
-  <!-- ============ VUE 2 : GRILLE ============ -->
+  <!-- ============ ASIE ============ -->
+  <div class="view" id="view-asia">
+    <div class="global"><div class="global-text" id="sum-asia"></div></div>
+    <div class="stage" id="stage-asia"></div>
+    <div class="legend">
+      <h3>Pourquoi l'Asie</h3>
+      <p>La Corée (Samsung, SK Hynix) et Taïwan (TSMC) fabriquent l'essentiel des puces. Une secousse sur les puces s'y voit souvent en premier, avant de toucher l'Europe et les US.</p>
+      <p class="disclaimer">Alerte précoce seulement. Aucun achat ne se décide ici.</p>
+    </div>
+  </div>
+
+  <!-- ============ GRILLE ============ -->
   <div class="view" id="view-grid">
     <div class="config-row">
       <div class="config-box">
-        <label>Poche disponible (€)</label>
-        <input id="pocket" inputmode="decimal" placeholder="3450">
-        <div class="hint">Mise de départ + flux déjà mis de côté. Jamais l'épargne de secours.</div>
+        <label>Enveloppe correction (€)</label>
+        <input id="pocket" inputmode="decimal" placeholder="ex. 10000">
+        <div class="hint">Jamais la réserve boîte, jamais le Livret A de précaution.</div>
       </div>
       <div class="config-box">
-        <label>Apport mensuel (€)</label>
-        <input id="monthly" inputmode="decimal" placeholder="500">
-        <div class="hint">Indicatif : la poche grossit, les montants par palier se recalculent quand tu mets à jour la poche.</div>
-      </div>
-      <div class="config-box">
-        <label>Modulation fragilité</label>
-        <input id="fragMod" value="100" inputmode="decimal">
-        <div class="hint">% de la poche rendu disponible. Calme → tu peux baisser (ex. 70). Tendu/stress → 100.</div>
+        <label>Record Stoxx 600 (forcer)</label>
+        <input id="athOverride" inputmode="decimal" placeholder="auto">
+        <div class="hint">Laisse vide pour utiliser le record calculé par le robot.</div>
       </div>
     </div>
 
     <div class="level-calc">
-      <h4>Référence de déclenchement</h4>
-      <div class="row"><span>Plus haut glissant 12 mois (S&amp;P 500) <input class="ath-input" id="ath" inputmode="decimal" placeholder="6200"></span></div>
-      <div class="row"><span>Déclenchement</span> <b>clôture hebdomadaire sous le seuil</b></div>
-      <div class="row"><span>Poche allouée après modulation</span> <b id="allocated">—</b></div>
+      <h4>Où on en est</h4>
+      <div class="row"><span>Record retenu</span><b id="gAth">n/d</b></div>
+      <div class="row"><span>Dernière clôture</span><b id="gLast">n/d</b></div>
+      <div class="row"><span>Dernière clôture hebdo</span><b id="gWeekly">n/d</b></div>
+      <div class="row"><span>Écart au record</span><b id="gDD">n/d</b></div>
+      <div class="row"><span>Prochain palier</span><b id="gNext">n/d</b></div>
+      <div class="row"><span>Déclenchement</span><b>clôture hebdo sous le seuil</b></div>
     </div>
 
     <div id="paliers"></div>
 
     <div class="guardrail">
-      <b>Garde-fou (24 mois).</b> Si aucun palier n'est touché dans les 24 mois suivant la mise en place, <b>40%</b> de la poche bascule en achat régulier étalé sur 12 mois sur l'ETF S&amp;P 500. Couverture contre « avoir raison trop tôt et ne jamais déclencher », le mode d'échec le plus probable d'une thèse de krach. Date de mise en place : <input class="ath-input" id="startDate" type="date" style="width:150px"> <span id="guardCountdown" style="color:var(--watch)"></span>
+      <b>Date butoir : 30 juin 2027.</b> Si aucun palier n'est touché d'ici là, on revoit la stratégie, à froid. <span id="guardCountdown" style="color:var(--watch)"></span>
     </div>
 
     <div class="actions">
-      <button class="act" id="resetGridBtn">Réinitialiser les paliers</button>
+      <button class="act" id="resetGridBtn">Réinitialiser les paliers exécutés</button>
       <span class="saved-flash" id="savedGrid">enregistré</span>
     </div>
 
     <div class="legend">
       <h3>Logique de la grille</h3>
-      <p>Tu décides les seuils à froid, le <b>prix</b> déclenche, pas ton jugement du moment. Tu ne vises pas le plancher, tu engages par paliers back-loaded : peu tôt, plus fort en profondeur, où l'asymétrie de rendement est meilleure.</p>
-      <p><b>Support :</b> ETF S&amp;P 500 capitalisant en PEA (exonération après 5 ans). Pas de Nasdaq : éviter d'acheter la concentration tech que la thèse juge risquée, et avoir un meilleur thermomètre du repli réel.</p>
-      <p>Le tableau de fragilité ne déclenche pas les achats : il module seulement la <b>part de poche</b> que tu rends disponible. Robinet de munition, pas gâchette.</p>
-      <p class="disclaimer">Aucune valeur de conseil en investissement. Les seuils sont des repères que tu possèdes, pas des signaux. Marque « touché » manuellement après confirmation d'une clôture hebdo sous le seuil.</p>
+      <p>Seuils décidés à froid, mesurés depuis le record du Stoxx 600. Le <b>prix</b> déclenche, pas ton jugement du moment. Déploiement concentré sur la fin, là où le rendement attendu est meilleur.</p>
+      <p>« Seuil atteint » s'allume tout seul quand une clôture hebdo passe sous le seuil. « Exécuté » se coche à la main, une fois l'achat fait.</p>
+      <p><b>Support :</b> Stoxx 600 en PEA, 100 % Europe.</p>
+      <p class="disclaimer">Aucune valeur de conseil en investissement. Les seuils sont des repères que tu possèdes, pas des signaux.</p>
     </div>
   </div>
 
 <script>
-// ===================== FRAGILITÉ =====================
+// ===================== CONFIG DES INDICATEURS =====================
+// region : eu / us / asia · stage : sous-bloc · zones : [seuil vigilance, seuil stress]
+// dir "up" = plus c'est haut, pire c'est ; "down" = plus c'est bas, pire c'est.
 const INDICATORS = {
-  concentration: { stage:1, name:"Concentration top 10 (S&P 500)", unit:"%", dir:"up",
-    desc:"Poids des 10 plus grosses capi. Plus c'est haut, plus l'indice dépend d'une poignée de valeurs.",
-    zones:[35,42], thresholds:"calme < 35 · vigilance 35–42 · stress > 42 — réf. moy. hist ~24%, top 10 ~40% mi-2026",
-    mode:"manual", source:"slickcharts.com/sp500 (somme des 10 premiers)", sourceUrl:"https://www.slickcharts.com/sp500" },
-  buffett: { stage:1, name:"Buffett indicator (cap / PIB)", unit:"%", dir:"up",
-    desc:"Capitalisation US totale / PIB. Jauge de cherté absolue du marché.",
-    zones:[150,200], thresholds:"calme < 150 · vigilance 150–200 · stress > 200 — réf. ~214–232% (29/06/2026)",
-    mode:"manual", source:"currentmarketvaluation.com", sourceUrl:"https://www.currentmarketvaluation.com/models/buffett-indicator.php" },
-  ipo: { stage:1, name:"Canal IPO / private (sentiment de sortie)", unit:"/5", dir:"down",
-    desc:"Note 1 à 5 : 5 = IPO au prix visé qui performent ; 1 = décotées, reportées, down-rounds.",
-    zones:[3,2], thresholds:"calme 4–5 · vigilance 3 · stress 1–2 — réf. SpaceX -25/30% post-IPO, OpenAI repoussé",
-    mode:"manual", source:"Suivi qualitatif : perf des dernières IPO tech", sourceUrl:"" },
-  hyStruct: { stage:1, name:"Spread high yield (niveau)", unit:"%", dir:"up",
-    desc:"Surprime exigée sur la dette pourrie vs Treasuries. Serré = l'argent coule, rien ne casse.",
-    zones:[4,5.5], thresholds:"calme < 4 · vigilance 4–5,5 · stress > 5,5 — réf. 2,78% (juin 2026), 10,9% (2020), 19,9% (2008)",
-    mode:"manual", source:"FRED série BAMLH0A0HYM2", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
-  vix: { stage:2, name:"VIX (volatilité implicite)", unit:"", dir:"up",
-    desc:"Stress immédiat pricé par les options. Calme sous 15, panique au-dessus de 30.",
-    zones:[20,30], thresholds:"calme < 20 · vigilance 20–30 · stress > 30 — réf. 16,4 (juin 2026), 82,7 (mars 2020)",
-    mode:"live", source:"FRED série VIXCLS", sourceUrl:"https://fred.stlouisfed.org/series/VIXCLS" },
-  vixTerm: { stage:2, name:"Structure de terme VIX (VIX9D − VIX)", unit:"pts", dir:"up",
-    desc:"Vol court − vol moyenne. Positif = stress immédiat > futur : événement en cours, pas anticipé.",
-    zones:[0,3], thresholds:"calme < 0 · vigilance 0–3 · stress > 3 — l'inversion (passage positif) est le signal",
-    mode:"manual", source:"cboe.com (VIX9D − VIX)", sourceUrl:"https://www.cboe.com/tradable_products/vix/" },
-  hyAccel: { stage:2, name:"Spread HY — variation 5 jours", unit:"pb", dir:"up",
-    desc:"Vitesse d'élargissement du spread (points de base sur 5 séances). La dérivée, pas le niveau.",
-    zones:[25,60], thresholds:"calme < 25 · vigilance 25–60 · stress > 60 — saut rapide = stress en cours",
-    mode:"manual", source:"FRED BAMLH0A0HYM2 (jour − 5 séances, ×100)", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
-  breadth: { stage:2, name:"Largeur de marché (% > MM200j)", unit:"%", dir:"down",
-    desc:"Part des valeurs S&P 500 au-dessus de leur MM 200j. Indice qui tient sur 5 valeurs = cassure proche.",
-    zones:[50,35], thresholds:"calme > 50 · vigilance 35–50 · stress < 35 — divergence indice/masse = danger",
-    mode:"manual", source:"barchart.com (S&P 500 % above 200-day MA)", sourceUrl:"https://www.barchart.com/stocks/momentum" }
-};
-const STAGE_META = {
-  1:{num:"01",title:"Fragilité structurelle",desc:"Monte lentement, des mois avant un retournement. Dit « le combustible s'accumule », jamais « maintenant ». Lecture mensuelle."},
-  2:{num:"02",title:"Stress / déclenchement",desc:"Plat des années puis explose en quelques jours. Confirme que ça a commencé. Lecture hebdo."}
-};
-const STATUS_LABEL = {calm:"calme",watch:"vigilance",stress:"stress",empty:"—"};
-const SCORE = {calm:0,watch:1,stress:2,empty:null};
-let fragState = {};
+  // ---- Europe
+  stoxxDD: { region:"eu", stage:1, name:"Stoxx 600, écart au record", unit:"%", dir:"down", zones:[-5,-10],
+    desc:"Distance entre la dernière clôture et le plus haut historique. C'est la même mesure que tes paliers.",
+    thresholds:"calme > -5 · vigilance -5 à -10 · stress < -10 (premier palier)",
+    source:"Yahoo Finance ^STOXX", sourceUrl:"https://finance.yahoo.com/quote/%5ESTOXX/" },
+  bund10y: { region:"eu", stage:1, name:"Taux allemand à 10 ans", unit:"%", dir:"up", zones:[3,3.75],
+    desc:"Le taux sans risque de référence en Europe. Quand il monte, les actions deviennent moins attirantes.",
+    thresholds:"calme < 3 · vigilance 3 à 3,75 · stress > 3,75 · moyenne mensuelle, publiée avec retard",
+    source:"FRED IRLTLT01DEM156N", sourceUrl:"https://fred.stlouisfed.org/series/IRLTLT01DEM156N" },
+  euCpi: { region:"eu", stage:1, name:"Inflation zone euro (sur 12 mois)", unit:"%", dir:"up", zones:[2.5,3.5],
+    desc:"Hausse des prix sur un an. La cible de la BCE est 2 %. Au-dessus, la BCE peut remonter ses taux.",
+    thresholds:"calme < 2,5 · vigilance 2,5 à 3,5 · stress > 3,5",
+    source:"BCE, HICP", sourceUrl:"https://data.ecb.europa.eu/data/datasets/ICP" },
 
-// Accepte la virgule comme séparateur décimal (format FR) aussi bien que le point.
+  // ---- US, étage 1 : fragilité structurelle
+  concentration: { region:"us", stage:1, name:"Concentration top 10 (S&P 500)", unit:"%", dir:"up", zones:[35,42],
+    desc:"Poids des 10 plus grosses capitalisations. Plus c'est haut, plus l'indice dépend d'une poignée de valeurs.",
+    thresholds:"calme < 35 · vigilance 35 à 42 · stress > 42 · moy. hist. ~24 %, ~40 % mi-2026",
+    source:"slickcharts.com/sp500", sourceUrl:"https://www.slickcharts.com/sp500" },
+  buffett: { region:"us", stage:1, name:"Indicateur Buffett (capitalisation / PIB)", unit:"%", dir:"up", zones:[150,200],
+    desc:"Valeur totale de la bourse US divisée par le PIB. Jauge de cherté absolue.",
+    thresholds:"calme < 150 · vigilance 150 à 200 · stress > 200 · ~214 à 232 % fin juin 2026",
+    source:"currentmarketvaluation.com", sourceUrl:"https://www.currentmarketvaluation.com/models/buffett-indicator.php" },
+  ipo: { region:"us", stage:1, name:"Introductions en bourse (note)", unit:"/5", dir:"down", zones:[3,2],
+    desc:"Ta note de 1 à 5 : 5 = les nouvelles introductions se font au prix visé et montent ; 1 = décotées ou reportées.",
+    thresholds:"calme 4 à 5 · vigilance 3 · stress 1 à 2 · jugement perso, reste manuel",
+    source:"Suivi qualitatif des dernières IPO tech", sourceUrl:"" },
+  hyStruct: { region:"us", stage:1, name:"Spread des obligations à risque (niveau)", unit:"%", dir:"up", zones:[4,5.5],
+    desc:"Surprime exigée pour prêter aux entreprises fragiles. Bas = l'argent coule, rien ne casse.",
+    thresholds:"calme < 4 · vigilance 4 à 5,5 · stress > 5,5 · 2,78 % juin 2026, 10,9 % en 2020, 19,9 % en 2008",
+    source:"FRED BAMLH0A0HYM2", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
+  // ---- US, étage 2 : stress
+  vix: { region:"us", stage:2, name:"VIX (peur du marché)", unit:"", dir:"up", zones:[20,30],
+    desc:"Stress immédiat mesuré sur les options. Calme sous 15, panique au-dessus de 30.",
+    thresholds:"calme < 20 · vigilance 20 à 30 · stress > 30 · 82,7 en mars 2020",
+    source:"FRED VIXCLS", sourceUrl:"https://fred.stlouisfed.org/series/VIXCLS" },
+  vixTerm: { region:"us", stage:2, name:"Peur court terme (VIX9D moins VIX)", unit:"pts", dir:"up", zones:[0,3],
+    desc:"Peur à 9 jours moins peur à 30 jours. Positif = le danger est maintenant, pas plus tard.",
+    thresholds:"calme < 0 · vigilance 0 à 3 · stress > 3 · le passage en positif est le signal",
+    source:"Cboe", sourceUrl:"https://www.cboe.com/tradable_products/vix/" },
+  hyAccel: { region:"us", stage:2, name:"Spread à risque, variation sur 5 jours", unit:"pb", dir:"up", zones:[25,60],
+    desc:"Vitesse à laquelle la surprime grimpe (en centièmes de point). Ce qui compte, c'est l'accélération.",
+    thresholds:"calme < 25 · vigilance 25 à 60 · stress > 60",
+    source:"FRED BAMLH0A0HYM2", sourceUrl:"https://fred.stlouisfed.org/series/BAMLH0A0HYM2" },
+  breadth: { region:"us", stage:2, name:"Largeur du marché (% au-dessus de la moyenne 200 j)", unit:"%", dir:"down", zones:[50,35],
+    desc:"Part des actions du S&P 500 au-dessus de leur moyenne sur 200 jours. Un indice qui tient sur 5 valeurs casse bientôt.",
+    thresholds:"calme > 50 · vigilance 35 à 50 · stress < 35",
+    source:"barchart.com", sourceUrl:"https://www.barchart.com/stocks/momentum" },
+  // ---- US, étage 3 : inflation et taux
+  usCpi: { region:"us", stage:3, name:"Inflation US (sur 12 mois)", unit:"%", dir:"up", zones:[3,4],
+    desc:"Hausse des prix sur un an. Si elle accélère, la Fed peut monter ses taux, ce qui pèse sur les actions.",
+    thresholds:"calme < 3 · vigilance 3 à 4 · stress > 4 · 3,7 % en septembre 2026",
+    source:"FRED CPIAUCSL", sourceUrl:"https://fred.stlouisfed.org/series/CPIAUCSL" },
+  us10y: { region:"us", stage:3, name:"Taux US à 10 ans", unit:"%", dir:"up", zones:[4.5,5.5],
+    desc:"Rendement d'un placement « sans risque ». Plus il est haut, plus l'argent est tenté de quitter la bourse.",
+    thresholds:"calme < 4,5 · vigilance 4,5 à 5,5 · stress > 5,5 · 5,26 % le 14/10/2026",
+    source:"FRED DGS10", sourceUrl:"https://fred.stlouisfed.org/series/DGS10" },
+
+  // ---- Asie
+  kospiDD: { region:"asia", stage:1, name:"Corée (Kospi), écart au plus haut 1 an", unit:"%", dir:"down", zones:[-5,-10],
+    desc:"Bourse de Samsung et SK Hynix. Thermomètre des mémoires.",
+    thresholds:"calme > -5 · vigilance -5 à -10 · stress < -10",
+    source:"Yahoo Finance ^KS11", sourceUrl:"https://finance.yahoo.com/quote/%5EKS11/" },
+  taiexDD: { region:"asia", stage:1, name:"Taïwan (Taiex), écart au plus haut 1 an", unit:"%", dir:"down", zones:[-5,-10],
+    desc:"Bourse de TSMC. Thermomètre de la fabrication des puces.",
+    thresholds:"calme > -5 · vigilance -5 à -10 · stress < -10",
+    source:"Yahoo Finance ^TWII", sourceUrl:"https://finance.yahoo.com/quote/%5ETWII/" }
+};
+const US_STAGES = {
+  1:{num:"01",title:"Fragilité structurelle",desc:"Monte lentement, des mois avant un retournement. Dit « le combustible s'accumule », jamais « maintenant ». Lecture mensuelle."},
+  2:{num:"02",title:"Stress / déclenchement",desc:"Plat des années puis explose en quelques jours. Confirme que ça a commencé. Lecture hebdo."},
+  3:{num:"03",title:"Inflation et taux",desc:"L'autre route vers une baisse : sans bulle qui éclate, juste des taux trop hauts qui rendent les actions moins attirantes."}
+};
+const STATUS_LABEL = {calm:"calme",watch:"vigilance",stress:"stress",empty:"n/d"};
+const SCORE = {calm:0,watch:1,stress:2};
+
+// Paliers : tes règles (-10/-20/-30/-40 depuis le record), déploiement concentré sur la fin.
+const PALIERS_DEF = [
+  {pct:10, alloc:0.15},
+  {pct:20, alloc:0.25},
+  {pct:30, alloc:0.30},
+  {pct:40, alloc:0.30}
+];
+const DEADLINE = "2027-06-30";
+
+let AUTO = {};          // données du robot (data/latest.json)
+let AUTO_ERRORS = {};
+let manual = {};        // saisies manuelles {id: valeur}
+let gridState = { pocket:"", athOverride:"", done:[false,false,false,false] };
+
+// ===================== OUTILS =====================
 function num(v){
   if(v===null||v===undefined||v==="") return NaN;
   return parseFloat(String(v).replace(",","."));
 }
-
+function fr(x,dec=2){ return isNaN(x)?"n/d":Number(x).toLocaleString("fr-FR",{minimumFractionDigits:0,maximumFractionDigits:dec}); }
+function frDate(iso){
+  if(!iso) return "";
+  const d=new Date(iso.length===7?iso+"-01":iso);
+  if(isNaN(d)) return iso;
+  return iso.length===7 ? d.toLocaleDateString("fr-FR",{month:"short",year:"numeric"})
+    : d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function valueOf(id){
+  const a=AUTO[id];
+  if(a && a.value!==null && a.value!==undefined) return {v:a.value, auto:true, date:a.date, extra:a};
+  return {v:manual[id], auto:false};
+}
 function classify(ind,v){
-  const x = num(v);
+  const x=num(v);
   if(isNaN(x)) return "empty";
   const [a,b]=ind.zones;
   if(ind.dir==="up"){ if(x<a)return"calm"; if(x<b)return"watch"; return"stress"; }
-  else { if(x>a)return"calm"; if(x>b)return"watch"; return"stress"; }
+  if(x>a)return"calm"; if(x>b)return"watch"; return"stress";
 }
-function renderStage(n){
-  const meta=STAGE_META[n], el=document.getElementById("stage"+n);
-  let html=`<div class="stage-head"><span class="stage-num">${meta.num}</span><span class="stage-title">${meta.title}</span></div><div class="stage-desc">${meta.desc}</div>`;
-  for(const [id,ind] of Object.entries(INDICATORS)){
-    if(ind.stage!==n) continue;
-    const st=fragState[id]||{}, cls=classify(ind,st.value), lc=st.isLive?"live-filled":"";
-    const srcHtml=ind.sourceUrl?`<span class="src"><a href="${ind.sourceUrl}" target="_blank" rel="noopener">↗ ${ind.source}</a></span>`:`<span class="src" style="color:var(--ink-faint);font-family:var(--mono);font-size:11px">${ind.source}</span>`;
-    html+=`<div class="card"><div class="card-main"><div class="card-name">${ind.name}<span class="tag ${ind.mode}">${ind.mode==="live"?"live":"manuel"}</span></div><div class="card-desc">${ind.desc}</div><div class="card-thresholds">${ind.thresholds}</div>${srcHtml}</div><div class="card-input"><div class="val-row"><input class="val ${lc}" id="in_${id}" inputmode="decimal" value="${st.value!==undefined&&st.value!==null?st.value:""}" placeholder="—" data-id="${id}"><span class="unit">${ind.unit}</span></div><span class="status ${cls}" id="st_${id}">${STATUS_LABEL[cls]}</span></div></div>`;
+
+// ===================== CARTES =====================
+function cardHtml(id,ind){
+  const val=valueOf(id), cls=classify(ind,val.v);
+  const tag=val.auto?`<span class="tag auto">auto</span>`:`<span class="tag manual">manuel</span>`;
+  const srcHtml=ind.sourceUrl?`<span class="src"><a href="${ind.sourceUrl}" target="_blank" rel="noopener">↗ ${esc(ind.source)}</a></span>`
+    :`<span class="src"><span>${esc(ind.source)}</span></span>`;
+  let extra="";
+  if(val.auto && val.extra && val.extra.last!==undefined){
+    extra=`<div class="card-extra">clôture ${fr(val.extra.last)} · plus haut ${fr(val.extra.high)} (${frDate(val.extra.highDate)})${val.extra.chg1m!==null&&val.extra.chg1m!==undefined?` · sur 1 mois ${val.extra.chg1m>0?"+":""}${fr(val.extra.chg1m)} %`:""}</div>`;
   }
-  el.innerHTML=html;
+  const failed=!val.auto && AUTO_ERRORS[id] ? `<div class="card-thresholds" style="color:var(--watch)">source auto indisponible ce soir, saisie manuelle possible</div>`:"";
+  const shown=val.v===undefined||val.v===null?"":(val.auto?fr(val.v):val.v);
+  return `<div class="card"><div class="card-main"><div class="card-name">${esc(ind.name)}${tag}</div>
+    <div class="card-desc">${esc(ind.desc)}</div>${extra}
+    <div class="card-thresholds">${esc(ind.thresholds)}</div>${failed}${srcHtml}</div>
+    <div class="card-input"><div class="val-row"><input class="val" id="in_${id}" inputmode="decimal" value="${esc(shown)}" placeholder="n/d" data-id="${id}" ${val.auto?"disabled":""}><span class="unit">${ind.unit}</span></div>
+    ${val.auto?`<span class="val-date">${frDate(val.date)}</span>`:""}
+    <span class="status ${cls}" id="st_${id}">${STATUS_LABEL[cls]}</span></div></div>`;
 }
-function recomputeFrag(){
-  // sum/maxSum = score normalisé sur le total des indicateurs (pas seulement les remplis).
-  // Un champ vide compte comme neutre : il occupe sa place au dénominateur mais ajoute 0,
-  // ce qui empêche un étage à moitié rempli de fausser le score vers le haut.
-  let sum=0, maxSum=0, filled=0, total=0, stressCount=0, structSum=0, structFilled=0, stage2Filled=0;
+function renderBlock(elId,filter,meta){
+  let html=meta?`<div class="stage-head"><span class="stage-num">${meta.num}</span><span class="stage-title">${meta.title}</span></div><div class="stage-desc">${meta.desc}</div>`:"";
+  for(const [id,ind] of Object.entries(INDICATORS)) if(filter(ind)) html+=cardHtml(id,ind);
+  document.getElementById(elId).innerHTML=html;
+}
+function renderAll(){
+  renderBlock("stage-eu",i=>i.region==="eu");
+  renderBlock("stage-asia",i=>i.region==="asia");
+  [1,2,3].forEach(n=>renderBlock("stage-us-"+n,i=>i.region==="us"&&i.stage===n,US_STAGES[n]));
+  document.querySelectorAll("input.val:not([disabled])").forEach(inp=>{
+    inp.addEventListener("input",e=>{
+      const id=e.target.dataset.id;
+      if(e.target.value==="") delete manual[id]; else manual[id]=e.target.value;
+      const st=document.getElementById("st_"+id), cls=classify(INDICATORS[id],manual[id]);
+      st.className="status "+cls; st.textContent=STATUS_LABEL[cls];
+      recompute(); saveAll(); flash("savedFrag");
+    });
+  });
+  recompute();
+}
+
+// ===================== SYNTHÈSES =====================
+function regionSummary(region){
+  const c={calm:0,watch:0,stress:0,empty:0}; const hot=[];
   for(const [id,ind] of Object.entries(INDICATORS)){
-    const st=fragState[id]||{}, cls=classify(ind,st.value);
-    const stEl=document.getElementById("st_"+id);
-    if(stEl){stEl.className="status "+cls; stEl.textContent=STATUS_LABEL[cls];}
-    const inEl=document.getElementById("in_"+id);
-    if(inEl) inEl.classList.toggle("live-filled",!!st.isLive);
-    const w=ind.stage===2?1.6:1.0;
-    total++; maxSum+=2*w; // chaque indicateur peut valoir au max 2 (stress)
-    if(cls!=="empty"){
-      filled++; sum+=SCORE[cls]*w;
-      if(ind.stage===1){structSum+=SCORE[cls];structFilled++;}
-      if(ind.stage===2) stage2Filled++;
-      if(cls==="stress")stressCount++;
-    }
+    if(ind.region!==region) continue;
+    const cls=classify(ind,valueOf(id).v); c[cls]++;
+    if(cls==="stress"||cls==="watch") hot.push(`${ind.name} (${STATUS_LABEL[cls]})`);
+  }
+  let txt=`<strong>${c.calm} calme · ${c.watch} vigilance · ${c.stress} stress</strong>${c.empty?` · ${c.empty} sans donnée`:""}.`;
+  if(hot.length) txt+=`<br>À surveiller : ${hot.map(esc).join(", ")}.`;
+  else if(c.empty===0) txt+=`<br>Rien d'allumé. Un outil de lecture est ennuyeux 90 % du temps : c'est qu'il marche.`;
+  return txt;
+}
+function recompute(){
+  document.getElementById("sum-eu").innerHTML=regionSummary("eu");
+  document.getElementById("sum-asia").innerHTML=regionSummary("asia");
+
+  // Score US : vide = neutre mais compte au dénominateur, étage stress pondéré plus fort.
+  let sum=0,maxSum=0,filled=0,stressCount=0,structSum=0,structFilled=0,stage2Filled=0;
+  for(const [id,ind] of Object.entries(INDICATORS)){
+    if(ind.region!=="us") continue;
+    const cls=classify(ind,valueOf(id).v), w=ind.stage===2?1.6:1.0;
+    maxSum+=2*w;
+    if(cls==="empty") continue;
+    filled++; sum+=SCORE[cls]*w;
+    if(ind.stage===1){structSum+=SCORE[cls];structFilled++;}
+    if(ind.stage===2) stage2Filled++;
+    if(cls==="stress") stressCount++;
   }
   const scoreEl=document.getElementById("globalScore"),labelEl=document.getElementById("globalLabel"),
     textEl=document.getElementById("globalText"),mark=document.getElementById("meterMark");
-  if(filled===0){scoreEl.textContent="—";labelEl.textContent="en attente";labelEl.style.color="var(--ink-dim)";scoreEl.style.color="var(--ink-dim)";mark.style.left="0%";
-    textEl.innerHTML="Renseigne les indicateurs. Le score agrège la <strong>fragilité structurelle</strong> et le <strong>stress de marché</strong>.";return;}
-  const norm=sum/maxSum, pct=Math.round(norm*100);
+  if(filled===0){scoreEl.textContent="n/d";labelEl.textContent="en attente";mark.style.left="0%";
+    textEl.innerHTML="Pas encore de données. Le score agrège la <strong>fragilité structurelle</strong>, le <strong>stress</strong> et les <strong>taux</strong>.";return;}
+  const norm=sum/maxSum,pct=Math.round(norm*100);
   scoreEl.textContent=pct; mark.style.left=pct+"%";
-  let label,color,msg;
-  const structHigh=structFilled>0&&(structSum/structFilled)>=1.3;
-  if(norm<0.33){label="calme";color="var(--calm)";}
-  else if(norm<0.6){label="tendu";color="var(--watch)";}
-  else{label="stress";color="var(--stress)";}
+  let label,color;
+  if(norm<0.33){label="calme";color="var(--calm)";} else if(norm<0.6){label="tendu";color="var(--watch)";} else {label="stress";color="var(--stress)";}
   scoreEl.style.color=color; labelEl.style.color=color; labelEl.textContent=label;
-  // Garde-fou : si l'étage 2 (stress) n'est pas renseigné, on ne peut pas conclure.
+  const structHigh=structFilled>0&&(structSum/structFilled)>=1.3;
   if(stage2Filled===0){
     labelEl.textContent="incomplet"; labelEl.style.color="var(--watch)"; scoreEl.style.color="var(--ink-dim)";
-    msg=`<strong>Étage stress non renseigné.</strong> Le score ne reflète que la structure tant que tu n'as pas saisi l'étage 2 (VIX, breadth...). Remplis-le pour avoir une lecture fiable : un score élevé ici ne veut rien dire sans l'étage stress.`;
-    textEl.innerHTML=msg; return;
+    textEl.innerHTML="<strong>Étage stress sans donnée.</strong> Sans lui, le score ne dit rien d'utile."; return;
   }
-  if(stressCount===0&&structHigh) msg=`<strong>Beaucoup de combustible, pas d'étincelle.</strong> Structure tendue, aucun stress allumé. Haut de cycle : thèse étayée mais rien ne déclenche. <strong>Arme la réserve</strong>, ne l'engage pas.`;
-  else if(stressCount>=2) msg=`<strong>${stressCount} signaux de stress allumés.</strong> La mécanique se grippe. La grille de paliers doit s'exécuter mécaniquement sur le prix, sans réinterprétation.`;
-  else if(stressCount===1) msg=`<strong>Un signal de stress isolé.</strong> Possible faux signal. Attendre un 2e avant de considérer que ça a commencé.`;
-  else msg=`Structure et stress modérés. Rien d'actionnable. Un outil de lecture est ennuyeux 90% du temps : c'est qu'il marche.`;
+  let msg;
+  const totalUs=Object.values(INDICATORS).filter(i=>i.region==="us").length;
+  if(filled<totalUs/2){
+    labelEl.textContent="partiel"; labelEl.style.color="var(--watch)"; scoreEl.style.color="var(--ink-dim)";
+    textEl.innerHTML=`<strong>Seulement ${filled} indicateurs sur ${totalUs} renseignés.</strong> Les cases vides comptent comme calmes, donc le score sous-estime peut-être le risque.`; return;
+  }
+  if(stressCount===0&&structHigh) msg="<strong>Beaucoup de combustible, pas d'étincelle.</strong> Structure tendue, aucun stress allumé. <strong>Arme la réserve</strong>, ne l'engage pas.";
+  else if(stressCount>=2) msg=`<strong>${stressCount} signaux de stress allumés.</strong> La grille de paliers doit s'exécuter mécaniquement sur le prix, sans réinterprétation.`;
+  else if(stressCount===1) msg="<strong>Un signal de stress isolé.</strong> Possible faux signal. Attendre un deuxième avant de conclure.";
+  else msg="Structure et stress modérés. Rien d'actionnable.";
   textEl.innerHTML=msg;
-}
-function attachFragInputs(){
-  document.querySelectorAll("#view-frag input.val").forEach(inp=>{
-    inp.addEventListener("input",e=>{
-      const id=e.target.dataset.id;
-      fragState[id]={value:e.target.value===""?null:e.target.value,isLive:false};
-      recomputeFrag(); saveAll(); flash("savedFrag");
-    });
-  });
-}
-function renderFrag(){ renderStage(1); renderStage(2); attachFragInputs(); recomputeFrag(); }
-
-async function fetchLive(){
-  const note=document.getElementById("fetchNote"),btn=document.getElementById("fetchBtn");
-  note.className="fetch-note"; note.textContent="Récupération en cours…"; btn.disabled=true;
-  let got=[];
-  try{
-    const r=await fetch("https://stooq.com/q/l/?s=^vix&f=sd2t2c&h&e=csv",{cache:"no-store"});
-    const txt=await r.text(), lines=txt.trim().split("\n"), cols=lines[1].split(",");
-    const close=parseFloat(cols[3]);
-    if(!isNaN(close)&&close>0){
-      fragState.vix={value:close.toFixed(2),isLive:true};
-      document.getElementById("in_vix").value=close.toFixed(2); got.push("VIX");
-    }
-  }catch(e){}
-  recomputeFrag(); saveAll(); btn.disabled=false;
-  if(got.length){note.className="fetch-note ok";note.textContent="Live OK : "+got.join(", ")+". Les autres restent en saisie manuelle (sources sous chaque champ).";}
-  else{note.className="fetch-note err";note.textContent="Source live indisponible (blocage navigateur fréquent). Tout passe en manuel, le mode le plus robuste. Ouvre les liens sources.";}
 }
 
 // ===================== GRILLE =====================
-const PALIERS_DEF = [
-  {pct:15, alloc:0.15},
-  {pct:25, alloc:0.25},
-  {pct:35, alloc:0.30},
-  {pct:50, alloc:0.30}
-];
-let gridState = { pocket:"", monthly:"", fragMod:"100", ath:"", startDate:"", triggered:[false,false,false,false] };
-
 function renderGrid(){
   document.getElementById("pocket").value=gridState.pocket||"";
-  document.getElementById("monthly").value=gridState.monthly||"";
-  document.getElementById("fragMod").value=gridState.fragMod||"100";
-  document.getElementById("ath").value=gridState.ath||"";
-  document.getElementById("startDate").value=gridState.startDate||"";
-
+  document.getElementById("athOverride").value=gridState.athOverride||"";
+  const s=AUTO.stoxxDD||{};
+  const ath=num(gridState.athOverride)||num(s.high)||0;
+  const last=num(s.last), weekly=num(s.weeklyClose);
   const pocket=num(gridState.pocket)||0;
-  const mod=(num(gridState.fragMod)||100)/100;
-  const allocated=pocket*mod;
-  const ath=num(gridState.ath)||0;
-  document.getElementById("allocated").textContent = allocated?allocated.toFixed(0)+" €":"—";
 
-  let html="";
+  document.getElementById("gAth").textContent=ath?fr(ath)+(gridState.athOverride?" (forcé)":` (${frDate(s.highDate)})`):"n/d";
+  document.getElementById("gLast").textContent=isNaN(last)?"n/d":`${fr(last)} (${frDate(s.date)})`;
+  document.getElementById("gWeekly").textContent=isNaN(weekly)?"n/d":`${fr(weekly)} (${frDate(s.weeklyDate)})`;
+  document.getElementById("gDD").textContent=(ath&&!isNaN(last))?`${fr((last/ath-1)*100)} %`:"n/d";
+
+  let html="", next=null;
   PALIERS_DEF.forEach((p,i)=>{
-    const eur=allocated*p.alloc;
-    const level= ath? (ath*(1-p.pct/100)).toFixed(0) : null;
-    const trig=gridState.triggered[i];
-    html+=`<div class="palier ${trig?'triggered':'armed'}">
+    const level=ath?ath*(1-p.pct/100):null;
+    const reached=level!==null && !isNaN(weekly) && weekly<=level;
+    const done=gridState.done[i];
+    const state=done?"done":(reached?"reached":"armed");
+    const badge=done?"exécuté":(reached?"seuil atteint":"armé");
+    if(!next && !reached && !done && level) next={p,level};
+    const eur=pocket*p.alloc;
+    html+=`<div class="palier ${state}">
       <div class="pal-trigger">-${p.pct}%</div>
-      <div class="pal-detail">${Math.round(p.alloc*100)}% de la poche allouée${level?` · seuil S&P 500 ≈ <b>${level}</b>`:``}</div>
-      <div class="pal-amount">${eur?`<span class="eur">${eur.toFixed(0)} €</span>`:`—`}</div>
-      <div class="pal-state">
-        <span class="pal-badge ${trig?'triggered':'armed'}">${trig?'touché':'armé'}</span>
-        <button class="pal-toggle" data-i="${i}">${trig?'annuler':'marquer touché'}</button>
-      </div>
+      <div class="pal-detail">${Math.round(p.alloc*100)} % de l'enveloppe${level?` · seuil Stoxx 600 ≈ <b>${fr(level,0)}</b>`:""}</div>
+      <div class="pal-amount">${eur?`<span class="eur">${fr(eur,0)} €</span>`:"n/d"}</div>
+      <div class="pal-state"><span class="pal-badge ${state}">${badge}</span>
+        <button class="pal-toggle" data-i="${i}">${done?"annuler":"marquer exécuté"}</button></div>
     </div>`;
   });
   document.getElementById("paliers").innerHTML=html;
+  document.getElementById("gNext").textContent=(next&&!isNaN(last))
+    ?`-${next.p.pct} % à ${fr(next.level,0)} (encore ${fr((next.level/last-1)*100,1)} %)`:"n/d";
+  document.querySelectorAll(".pal-toggle").forEach(b=>b.addEventListener("click",e=>{
+    const i=+e.target.dataset.i; gridState.done[i]=!gridState.done[i]; renderGrid(); saveAll(); flash("savedGrid");
+  }));
 
-  document.querySelectorAll(".pal-toggle").forEach(b=>{
-    b.addEventListener("click",e=>{
-      const i=+e.target.dataset.i;
-      gridState.triggered[i]=!gridState.triggered[i];
-      renderGrid(); saveAll(); flash("savedGrid");
-    });
-  });
-
-  // countdown garde-fou
   const cd=document.getElementById("guardCountdown");
-  if(gridState.startDate){
-    const start=new Date(gridState.startDate);
-    const end=new Date(start); end.setMonth(end.getMonth()+24);
-    const now=new Date();
-    const anyTrig=gridState.triggered.some(t=>t);
-    if(anyTrig){ cd.textContent="· un palier touché, garde-fou levé"; cd.style.color="var(--calm)"; }
-    else {
-      const months=Math.max(0,Math.round((end-now)/(1000*60*60*24*30.44)));
-      cd.textContent=`· ${months} mois avant bascule DCA`; cd.style.color="var(--watch)";
-    }
-  } else cd.textContent="";
+  if(gridState.done.some(x=>x)) { cd.textContent="· un palier exécuté, la date butoir ne s'applique plus."; cd.style.color="var(--calm)"; }
+  else {
+    const months=Math.max(0,Math.round((new Date(DEADLINE)-new Date())/(1000*60*60*24*30.44)));
+    cd.textContent=`· encore ${months} mois.`;
+  }
 }
-function attachGridInputs(){
-  ["pocket","monthly","fragMod","ath","startDate"].forEach(id=>{
-    document.getElementById(id).addEventListener("input",e=>{
-      gridState[id]=e.target.value; renderGrid(); saveAll(); flash("savedGrid");
-    });
-  });
-}
+["pocket","athOverride"].forEach(id=>document.getElementById(id).addEventListener("input",e=>{
+  gridState[id]=e.target.value; renderGrid(); saveAll(); flash("savedGrid");
+}));
 
 // ===================== PERSISTANCE =====================
-const KEY="fragilite_grille_v1";
-function saveAll(){
-  try{ localStorage.setItem(KEY,JSON.stringify({frag:fragState,grid:gridState,ts:Date.now()})); }catch(e){}
-}
+const KEY="fragilite_grille_v2";
+function saveAll(){ try{ localStorage.setItem(KEY,JSON.stringify({manual,grid:gridState,ts:Date.now()})); }catch(e){} }
 function loadAll(){
   try{
     const raw=localStorage.getItem(KEY);
-    if(raw){ const d=JSON.parse(raw); if(d.frag)fragState=d.frag; if(d.grid)gridState=Object.assign(gridState,d.grid); }
+    if(raw){ const d=JSON.parse(raw); if(d.manual) manual=d.manual; if(d.grid) gridState=Object.assign(gridState,d.grid); }
   }catch(e){}
 }
-let flashTimers={};
+const flashTimers={};
 function flash(id){
-  const el=document.getElementById(id); if(!el)return;
+  const el=document.getElementById(id); if(!el) return;
   el.classList.add("show"); clearTimeout(flashTimers[id]);
   flashTimers[id]=setTimeout(()=>el.classList.remove("show"),1200);
 }
 
-// ===================== TABS =====================
-document.querySelectorAll(".tab").forEach(t=>{
-  t.addEventListener("click",()=>{
-    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
-    document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
-    t.classList.add("active");
-    document.getElementById("view-"+t.dataset.view).classList.add("active");
-  });
-});
+// ===================== DONNÉES AUTO =====================
+async function loadAuto(){
+  const asof=document.getElementById("asof"), note=document.getElementById("dataNote");
+  try{
+    const r=await fetch("data/latest.json?t="+Date.now(),{cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    const d=await r.json();
+    AUTO=d.values||{}; AUTO_ERRORS=d.errors||{};
+    const up=new Date(d.updated);
+    const ageDays=(Date.now()-up)/(1000*60*60*24);
+    asof.textContent="données du "+up.toLocaleString("fr-FR",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    if(ageDays>3){ asof.classList.add("stale"); note.className="data-note err"; note.textContent=`Données vieilles de ${Math.round(ageDays)} jours : le robot ne tourne peut-être plus.`; }
+    else { const n=Object.keys(AUTO_ERRORS).length; note.textContent=n?`${n} source(s) sans réponse ce soir, à saisir à la main si besoin.`:""; }
+  }catch(e){
+    asof.textContent="pas de données auto"; asof.classList.add("stale");
+    note.className="data-note err"; note.textContent="Données automatiques introuvables. Tout fonctionne en saisie manuelle.";
+  }
+  renderAll(); renderGrid();
+}
 
-// reset
-document.getElementById("resetFragBtn").addEventListener("click",()=>{
-  fragState={}; renderFrag(); saveAll(); document.getElementById("fetchNote").textContent="";
-});
-document.getElementById("resetGridBtn").addEventListener("click",()=>{
-  gridState.triggered=[false,false,false,false]; renderGrid(); saveAll();
-});
-document.getElementById("fetchBtn").addEventListener("click",fetchLive);
+// ===================== ONGLETS & BOUTONS =====================
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active"); document.getElementById("view-"+t.dataset.view).classList.add("active");
+}));
+document.getElementById("resetManualBtn").addEventListener("click",()=>{ manual={}; saveAll(); renderAll(); });
+document.getElementById("resetGridBtn").addEventListener("click",()=>{ gridState.done=[false,false,false,false]; saveAll(); renderGrid(); });
 
-// init
 loadAll();
-renderFrag();
-renderGrid();
-attachGridInputs();
-document.getElementById("asof").textContent="màj : "+new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"});
+loadAuto();
 </script>
 </body>
 </html>
