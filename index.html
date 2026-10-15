@@ -299,14 +299,14 @@ const INDICATORS = {
     source:"Eurostat, HICP", sourceUrl:"https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_manr/default/table" },
 
   // ---- US, étage 1 : fragilité structurelle
+  buffett: { region:"us", stage:1, name:"Indicateur Buffett (actions / PIB, version Fed)", unit:"%", dir:"up", zones:[120,160],
+    desc:"Combien vaut la bourse américaine comparée à tout ce que l'économie produit en un an. À 100 %, les entreprises cotées valent une année de production ; au-dessus, les investisseurs paient pour des bénéfices futurs. Plus c'est haut, plus la chute peut être forte quand l'optimisme retombe. Mais un marché cher peut le rester des années : ça dit « fragile », jamais « quand ». Chiffre trimestriel, environ 3 mois de retard.",
+    thresholds:"calme < 120 · vigilance 120 à 160 · stress > 160 (pic de la bulle internet ~163) · version Fed, plus basse que la version Wilshire",
+    source:"Fed, comptes financiers Z.1", sourceUrl:"https://fred.stlouisfed.org/series/NCBEILQ027S" },
   concentration: { region:"us", stage:1, name:"Concentration top 10 (S&P 500)", unit:"%", dir:"up", zones:[35,42],
     desc:"Poids des 10 plus grosses capitalisations. Plus c'est haut, plus l'indice dépend d'une poignée de valeurs.",
     thresholds:"calme < 35 · vigilance 35 à 42 · stress > 42 · moy. hist. ~24 %, ~40 % mi-2026",
     source:"slickcharts.com/sp500", sourceUrl:"https://www.slickcharts.com/sp500" },
-  buffett: { region:"us", stage:1, name:"Indicateur Buffett (actions / PIB, version Fed)", unit:"%", dir:"up", zones:[120,160],
-    desc:"Valeur des actions des entreprises US divisée par le PIB. Jauge de cherté absolue. Chiffre trimestriel, publié avec environ 3 mois de retard.",
-    thresholds:"calme < 120 · vigilance 120 à 160 · stress > 160 (pic de la bulle internet ~163) · version Fed, plus basse que la version Wilshire",
-    source:"Fed, comptes financiers Z.1", sourceUrl:"https://fred.stlouisfed.org/series/NCBEILQ027S" },
   ipo: { region:"us", stage:1, name:"Introductions en bourse (note)", unit:"/5", dir:"down", zones:[3,2],
     desc:"Ta note de 1 à 5 : 5 = les nouvelles introductions se font au prix visé et montent ; 1 = décotées ou reportées.",
     thresholds:"calme 4 à 5 · vigilance 3 · stress 1 à 2 · jugement perso, reste manuel",
@@ -522,7 +522,11 @@ function regionScore(region){
   return {pct:Math.round(norm*100),label,color};
 }
 function stressedNames(region){
-  return Object.entries(INDICATORS).filter(([id,ind])=>ind.region===region && classify(ind,valueOf(id).v)==="stress").map(([,ind])=>ind.name);
+  return Object.entries(INDICATORS).filter(([id,ind])=>ind.region===region && classify(ind,valueOf(id).v)==="stress")
+    .map(([id,ind])=>{
+      if(id==="buffett"){ const v=num(valueOf(id).v); return `${ind.name}, ${fr(v,0)} % : la bourse US vaut environ ${fr(v/100,1)} fois l'économie, un record. Fragile, mais ça peut durer`; }
+      return ind.name;
+    });
 }
 function renderOverview(){
   const names={eu:"Europe",us:"US",asia:"Asie"}, alerts=[];
