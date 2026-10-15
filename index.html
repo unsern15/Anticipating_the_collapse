@@ -272,10 +272,10 @@ const INDICATORS = {
     desc:"Poids des 10 plus grosses capitalisations. Plus c'est haut, plus l'indice dépend d'une poignée de valeurs.",
     thresholds:"calme < 35 · vigilance 35 à 42 · stress > 42 · moy. hist. ~24 %, ~40 % mi-2026",
     source:"slickcharts.com/sp500", sourceUrl:"https://www.slickcharts.com/sp500" },
-  buffett: { region:"us", stage:1, name:"Indicateur Buffett (capitalisation / PIB)", unit:"%", dir:"up", zones:[150,200],
-    desc:"Valeur totale de la bourse US divisée par le PIB. Jauge de cherté absolue.",
-    thresholds:"calme < 150 · vigilance 150 à 200 · stress > 200 · ~214 à 232 % fin juin 2026",
-    source:"currentmarketvaluation.com", sourceUrl:"https://www.currentmarketvaluation.com/models/buffett-indicator.php" },
+  buffett: { region:"us", stage:1, name:"Indicateur Buffett (actions / PIB, version Fed)", unit:"%", dir:"up", zones:[120,160],
+    desc:"Valeur des actions des entreprises US divisée par le PIB. Jauge de cherté absolue. Chiffre trimestriel, publié avec environ 3 mois de retard.",
+    thresholds:"calme < 120 · vigilance 120 à 160 · stress > 160 (pic de la bulle internet ~163) · version Fed, plus basse que la version Wilshire",
+    source:"Fed, comptes financiers Z.1", sourceUrl:"https://fred.stlouisfed.org/series/NCBEILQ027S" },
   ipo: { region:"us", stage:1, name:"Introductions en bourse (note)", unit:"/5", dir:"down", zones:[3,2],
     desc:"Ta note de 1 à 5 : 5 = les nouvelles introductions se font au prix visé et montent ; 1 = décotées ou reportées.",
     thresholds:"calme 4 à 5 · vigilance 3 · stress 1 à 2 · jugement perso, reste manuel",
@@ -386,6 +386,9 @@ function cardHtml(id,ind){
   if(val.auto && val.extra && val.extra.last!==undefined){
     extra=`<div class="card-extra">clôture ${fr(val.extra.last)} · plus haut ${fr(val.extra.high)}${val.extra.highDate?` (${frDate(val.extra.highDate)})`:" (saisi)"}${val.extra.chg1m!==null&&val.extra.chg1m!==undefined?` · sur 1 mois ${val.extra.chg1m>0?"+":""}${fr(val.extra.chg1m)} %`:""}</div>`;
   }
+  if(val.auto && id==="buffett" && val.extra && val.extra.mean){
+    extra=`<div class="card-extra">moyenne depuis 1950 : ${fr(val.extra.mean,0)} % · pic de 2000 : ${fr(val.extra.peak2000,0)} %${val.extra.rank>=100?" · <b>plus haut historique</b>":` · plus haut que ${val.extra.rank} % de l'historique`}</div>`;
+  }
   const failed=!val.auto && AUTO_ERRORS[id] ? `<div class="card-thresholds" style="color:var(--watch)">source auto indisponible ce soir, saisie manuelle possible</div>`:"";
   const shown=val.v===undefined||val.v===null?"":(val.auto?fr(val.v):val.v);
   return `<div class="card"><div class="card-main"><div class="card-name">${esc(ind.name)}${tag}</div>
@@ -443,7 +446,7 @@ function recompute(){
     filled++; sum+=SCORE[cls]*w;
     if(ind.stage===1){structSum+=SCORE[cls];structFilled++;}
     if(ind.stage===2) stage2Filled++;
-    if(cls==="stress") stressCount++;
+    if(cls==="stress" && ind.stage===2) stressCount++; // seul l'étage « étincelle » compte comme signal de stress
   }
   const scoreEl=document.getElementById("globalScore"),labelEl=document.getElementById("globalLabel"),
     textEl=document.getElementById("globalText"),mark=document.getElementById("meterMark");
