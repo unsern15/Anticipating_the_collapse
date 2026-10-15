@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-15T17:34:54Z",
+  "updated": "2026-10-15T17:36:40Z",
   "values": {
     "vix": {
       "value": 16.87,
@@ -37,13 +37,12 @@
       "source": "slickcharts.com"
     },
     "buffett": {
-      "value": 379.8,
+      "value": 255.0,
       "date": "2026-04-01",
-      "source": "Fed Z.1 BOGZ1FL893064105Q / PIB, trimestriel",
-      "alt": {
-        "BOGZ1FL893064105Q": 379.8,
-        "NCBEILQ027S": 255.0
-      }
+      "source": "Fed Z.1 NCBEILQ027S / PIB, trimestriel",
+      "mean": 87.2,
+      "peak2000": 162.6,
+      "rank": 100
     },
     "stoxxDD": {
       "value": -2.91,
