@@ -77,10 +77,10 @@ def first_ok(*fns):
 
 # ---------------------------------------------------------------- sources
 
-def fred_series(series_id):
+def fred_series(series_id, start=None):
     """Série FRED. Avec la clé gratuite FRED_API_KEY (secret GitHub) on passe par l'API
     officielle, plus fiable ; sinon par le CSV public. Renvoie [(date, valeur)]."""
-    start = (dt.date.today() - dt.timedelta(days=800)).isoformat()
+    start = start or (dt.date.today() - dt.timedelta(days=800)).isoformat()
     key = os.environ.get("FRED_API_KEY", "").strip()
     if key:
         d = json.loads(get("https://api.stlouisfed.org/fred/series/observations"
@@ -550,26 +550,22 @@ def main():
         return first_ok(from_treasury, from_fred)
 
     def buffett():
-        """Valeur des actions des entreprises US (Fed, comptes financiers Z.1, millions $)
-        divisée par le PIB nominal (milliards $). Trimestriel, publié avec retard."""
-        gdp = dict(fred_series("GDP"))
-        out = {}
-        for sid in ("BOGZ1FL893064105Q", "NCBEILQ027S"):
-            try:
-                eq = fred_series(sid)
-                common = [d for d, _ in eq if d in gdp]
-                d = common[-1]
-                out[sid] = (d, dict(eq)[d] / 1000 / gdp[d] * 100)
-            except Exception:  # noqa: BLE001
-                continue
-        if not out:
-            raise ValueError("séries Fed indisponibles")
-        sid = "BOGZ1FL893064105Q" if "BOGZ1FL893064105Q" in out else "NCBEILQ027S"
-        d, v = out[sid]
-        res = {"value": round(v, 1), "date": d, "source": f"Fed Z.1 {sid} / PIB, trimestriel"}
-        if len(out) == 2:
-            res["alt"] = {k: round(x[1], 1) for k, x in out.items()}
-        return res
+        """Indicateur Buffett version Fed : valeur des actions des entreprises non financières US
+        (comptes Z.1, millions $) / PIB nominal (milliards $). Trimestriel, publié avec retard.
+        Ce n'est pas la même base que la version Wilshire : on le juge par rapport à sa
+        propre histoire depuis 1950 (moyenne, pic de 2000, rang)."""
+        gdp = dict(fred_series("GDP", start="1950-01-01"))
+        eq = fred_series("NCBEILQ027S", start="1950-01-01")
+        ratio = [(d, v / 1000 / gdp[d] * 100) for d, v in eq if d in gdp and gdp[d]]
+        if len(ratio) < 100:
+            raise ValueError("historique Fed trop court")
+        d, v = ratio[-1]
+        hist = [x for _, x in ratio]
+        mean = sum(hist) / len(hist)
+        peak2000 = max(x for dd, x in ratio if "1999" <= dd[:4] <= "2000")
+        rank = round(sum(1 for x in hist if x < v) / len(hist) * 100)
+        return {"value": round(v, 1), "date": d, "source": "Fed Z.1 NCBEILQ027S / PIB, trimestriel",
+                "mean": round(mean, 1), "peak2000": round(peak2000, 1), "rank": rank}
 
     def concentration():
         return {"value": slickcharts_top10(), "date": today.isoformat(), "source": "slickcharts.com"}
