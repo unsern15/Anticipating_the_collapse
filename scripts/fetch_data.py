@@ -208,21 +208,19 @@ def twse_taiex(months=13):
     return out
 
 
-def naver_index(code="KOSPI", pages=3):
-    """Clôtures quotidiennes d'un indice coréen via Naver Finance. [(date, clôture)]."""
-    out = {}
-    for page in range(1, pages + 1):
-        js = json.loads(get(f"https://m.stock.naver.com/api/index/{code}/price?pageSize=100&page={page}"))
-        for o in js if isinstance(js, list) else js.get("result", []):
-            d = (o.get("localTradedAt") or o.get("localDate") or "")[:10].replace(".", "-")
-            c = o.get("closePrice") or o.get("closePriceRaw")
-            if len(d) == 8 and d.isdigit():
-                d = f"{d[:4]}-{d[4:6]}-{d[6:]}"
-            try:
-                out[d] = float(str(c).replace(",", ""))
-            except (TypeError, ValueError):
-                continue
-    pts = sorted((d, v) for d, v in out.items() if len(d) == 10)
+def naver_index(code="KOSPI"):
+    """Clôtures quotidiennes d'un indice coréen via le graphique Naver (XML,
+    lignes « date|ouverture|haut|bas|clôture|volume »). [(date, clôture)]."""
+    xml = get(f"https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=400&requestType=0")
+    pts = []
+    for raw in re.findall(r'data="([^"]+)"', xml):
+        parts = raw.split("|")
+        try:
+            d = parts[0]
+            pts.append((f"{d[:4]}-{d[4:6]}-{d[6:8]}", float(parts[4])))
+        except (IndexError, ValueError):
+            continue
+    pts.sort()
     if len(pts) < 30:
         raise ValueError(f"Naver {code} vide")
     return pts
@@ -271,6 +269,83 @@ def eurostat_hicp_euro_area():
     if not best:
         raise ValueError("Eurostat HICP vide")
     return best
+
+
+def eurostat_minr():
+    """Inflation zone euro sur un an, nouveau jeu Eurostat prc_hicp_minr (ECOICOP v2, 2026).
+    Renvoie (période, valeur, source)."""
+    best, seen = None, set()
+    for geo in ("EA", "EA21"):
+        try:
+            d = json.loads(get("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_minr"
+                               f"?format=JSON&lang=EN&geo={geo}&unit=RCH_A&lastTimePeriod=2", timeout=40))
+        except Exception:  # noqa: BLE001
+            continue
+        ids, sizes, dims = d["id"], d["size"], d["dimension"]
+        cdim = next((i for i in ids if i.startswith("coicop") or i.startswith("ecoicop")), None)
+        if not cdim:
+            continue
+        cats = dims[cdim]["category"]["index"]
+        seen.update(list(cats)[:8])
+        code = next((c for c in ("TOTAL", "CP00", "CP00_V2", "_T", "00") if c in cats), None)
+        if code is None:
+            continue
+        times = dims["time"]["category"]["index"]
+        for t in sorted(times, reverse=True):
+            pos = []
+            for i in ids:
+                cat = dims[i]["category"]["index"]
+                key = code if i == cdim else (t if i == "time" else next(iter(cat)))
+                pos.append(cat[key])
+            flat = 0
+            for p_, sz in zip(pos, sizes):
+                flat = flat * sz + p_
+            v = d.get("value", {}).get(str(flat))
+            if v is not None:
+                cand = (t, float(v), f"Eurostat {geo} {code}")
+                if best is None or cand[0] > best[0]:
+                    best = cand
+                break
+    if not best:
+        raise ValueError(f"prc_hicp_minr : indice global introuvable (postes vus : {sorted(seen)})")
+    return best
+
+
+def abcbourse_recent(slug="STOXXp"):
+    """Dernières clôtures affichées sur abcbourse (tableau « Cours historiques »). [(date, clôture)]."""
+    html = get(f"https://www.abcbourse.com/cotation/{slug}")
+    pts = []
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.S):
+        cells = [re.sub(r"<.*?>", "", c).strip() for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, flags=re.S)]
+        if len(cells) >= 6 and re.fullmatch(r"\d{2}/\d{2}/\d{4}", cells[0]):
+            try:
+                d = dt.datetime.strptime(cells[0], "%d/%m/%Y").date().isoformat()
+                pts.append((d, float(cells[5].replace("\u202f", "").replace(" ", "").replace(",", "."))))
+            except ValueError:
+                continue
+    pts.sort()
+    if not pts:
+        raise ValueError("abcbourse illisible")
+    if not 200 < pts[-1][1] < 2000:
+        raise ValueError(f"valeur abcbourse incohérente ({pts[-1][1]})")
+    return pts
+
+
+HIST = os.path.join(os.path.dirname(__file__), "..", "data", "stoxx600_history.json")
+
+
+def stoxx_with_memory(recent):
+    """Ajoute les clôtures récentes à l'historique gardé dans le dépôt, renvoie tout."""
+    try:
+        with open(HIST, encoding="utf-8") as f:
+            hist = dict(json.load(f))
+    except (OSError, ValueError):
+        hist = {}
+    hist.update(dict(recent))
+    pts = sorted(hist.items())
+    with open(HIST, "w", encoding="utf-8") as f:
+        json.dump(pts, f, indent=0)
+    return pts
 
 
 def stoxx_official(code="sxxp"):
@@ -491,9 +566,17 @@ def main():
         def yahoo():
             src["n"] = "Yahoo ^STOXX"
             return yahoo_closes("^STOXX", "10y")
-        closes = first_ok(official, yahoo)
+
+        def recent():
+            src["n"] = "abcbourse + historique du robot"
+            src["partial"] = True
+            return stoxx_with_memory(abcbourse_recent("STOXXp"))
+        closes = first_ok(yahoo, official, recent)
+        if not src.get("partial"):
+            stoxx_with_memory(closes[-30:])  # garde l'historique à jour pour les jours sans source
         b = drawdown_block(closes, today)
         b["source"] = src["n"]
+        b["partialHistory"] = bool(src.get("partial"))
         return b
 
     def bund():
@@ -513,7 +596,8 @@ def main():
             if age > 120:
                 raise ValueError(f"série arrêtée en {d}")
             return res
-        d, v, src = first_ok(lambda: fresh(ecb_hicp_euro_area()), lambda: fresh(eurostat_hicp_euro_area()))
+        d, v, src = first_ok(lambda: fresh(eurostat_minr()), lambda: fresh(ecb_hicp_euro_area()),
+                             lambda: fresh(eurostat_hicp_euro_area()))
         return {"value": round(v, 2), "date": d, "source": f"HICP zone euro sur 12 mois ({src})"}
 
     run("stoxxDD", stoxx)

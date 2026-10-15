@@ -212,9 +212,9 @@
         <div class="hint">Jamais la réserve boîte, jamais le Livret A de précaution.</div>
       </div>
       <div class="config-box">
-        <label>Record Stoxx 600 (forcer)</label>
+        <label>Record Stoxx 600</label>
         <input id="athOverride" inputmode="decimal" placeholder="auto">
-        <div class="hint">Laisse vide pour utiliser le record calculé par le robot.</div>
+        <div class="hint">Vide = record calculé par le robot. À remplir si la page te le demande.</div>
       </div>
     </div>
 
@@ -359,6 +359,12 @@ function frDate(iso){
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function valueOf(id){
   const a=AUTO[id];
+  // Historique partiel : le plus haut du robot n'est pas le vrai record, on passe par le record saisi.
+  if(id==="stoxxDD" && a && a.partialHistory){
+    const ath=num(gridState.athOverride);
+    if(!ath) return {v:manual[id], auto:false};
+    return {v:+((a.last/ath-1)*100).toFixed(2), auto:true, date:a.date, extra:Object.assign({},a,{high:ath,highDate:null})};
+  }
   if(a && a.value!==null && a.value!==undefined) return {v:a.value, auto:true, date:a.date, extra:a};
   return {v:manual[id], auto:false};
 }
@@ -378,7 +384,7 @@ function cardHtml(id,ind){
     :`<span class="src"><span>${esc(ind.source)}</span></span>`;
   let extra="";
   if(val.auto && val.extra && val.extra.last!==undefined){
-    extra=`<div class="card-extra">clôture ${fr(val.extra.last)} · plus haut ${fr(val.extra.high)} (${frDate(val.extra.highDate)})${val.extra.chg1m!==null&&val.extra.chg1m!==undefined?` · sur 1 mois ${val.extra.chg1m>0?"+":""}${fr(val.extra.chg1m)} %`:""}</div>`;
+    extra=`<div class="card-extra">clôture ${fr(val.extra.last)} · plus haut ${fr(val.extra.high)}${val.extra.highDate?` (${frDate(val.extra.highDate)})`:" (saisi)"}${val.extra.chg1m!==null&&val.extra.chg1m!==undefined?` · sur 1 mois ${val.extra.chg1m>0?"+":""}${fr(val.extra.chg1m)} %`:""}</div>`;
   }
   const failed=!val.auto && AUTO_ERRORS[id] ? `<div class="card-thresholds" style="color:var(--watch)">source auto indisponible ce soir, saisie manuelle possible</div>`:"";
   const shown=val.v===undefined||val.v===null?"":(val.auto?fr(val.v):val.v);
@@ -471,11 +477,12 @@ function renderGrid(){
   document.getElementById("pocket").value=gridState.pocket||"";
   document.getElementById("athOverride").value=gridState.athOverride||"";
   const s=AUTO.stoxxDD||{};
-  const ath=num(gridState.athOverride)||num(s.high)||0;
+  const ath=num(gridState.athOverride)||(s.partialHistory?0:num(s.high))||0;
   const last=num(s.last), weekly=num(s.weeklyClose);
   const pocket=num(gridState.pocket)||0;
 
-  document.getElementById("gAth").textContent=ath?fr(ath)+(gridState.athOverride?" (forcé)":` (${frDate(s.highDate)})`):"n/d";
+  document.getElementById("gAth").textContent=ath?fr(ath)+(gridState.athOverride?" (saisi)":` (${frDate(s.highDate)})`)
+    :(s.partialHistory?"à saisir ci-dessus (historique du robot trop court)":"n/d");
   document.getElementById("gLast").textContent=isNaN(last)?"n/d":`${fr(last)} (${frDate(s.date)})`;
   document.getElementById("gWeekly").textContent=isNaN(weekly)?"n/d":`${fr(weekly)} (${frDate(s.weeklyDate)})`;
   document.getElementById("gDD").textContent=(ath&&!isNaN(last))?`${fr((last/ath-1)*100)} %`:"n/d";
@@ -512,7 +519,7 @@ function renderGrid(){
   }
 }
 ["pocket","athOverride"].forEach(id=>document.getElementById(id).addEventListener("input",e=>{
-  gridState[id]=e.target.value; renderGrid(); saveAll(); flash("savedGrid");
+  gridState[id]=e.target.value; renderGrid(); if(id==="athOverride") renderAll(); saveAll(); flash("savedGrid");
 }));
 
 // ===================== PERSISTANCE =====================
