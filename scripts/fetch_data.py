@@ -331,6 +331,11 @@ def abcbourse_recent(slug="STOXXp"):
     return pts
 
 
+# Record de clôture connu avant que le robot ne garde son propre historique
+# (relevé par Alexis sur Investing.com, août 2026). Le robot prend le plus grand
+# entre ce chiffre et ce qu'il a vu lui-même : un nouveau record sera suivi tout seul.
+STOXX_RECORD_SEED = (656.86, "2026-08")
+
 HIST = os.path.join(os.path.dirname(__file__), "..", "data", "stoxx600_history.json")
 
 
@@ -576,7 +581,11 @@ def main():
             stoxx_with_memory(closes[-30:])  # garde l'historique à jour pour les jours sans source
         b = drawdown_block(closes, today)
         b["source"] = src["n"]
-        b["partialHistory"] = bool(src.get("partial"))
+        if src.get("partial"):
+            seed, seed_d = STOXX_RECORD_SEED
+            if seed >= b["high"]:
+                b["high"], b["highDate"] = seed, seed_d
+                b["value"] = round((b["last"] / seed - 1) * 100, 2)
         return b
 
     def bund():
