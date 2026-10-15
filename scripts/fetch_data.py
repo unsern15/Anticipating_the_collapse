@@ -28,6 +28,11 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "data", "latest.json")
 DEAD_HOSTS = set()
 
 
+# stoxx.com sert une chaîne de certificats incomplète que Python refuse. Pour ce seul site
+# (données publiques, lecture seule, valeurs contrôlées ensuite), on accepte sans vérifier.
+INSECURE_HOSTS = {"www.stoxx.com"}
+
+
 def get(url, timeout=25, tries=2):
     """Téléchargement avec une nouvelle tentative. Un site qui ne répond pas du tout
     est mis de côté pour le reste du passage, pour ne pas bloquer le robot."""
@@ -38,7 +43,13 @@ def get(url, timeout=25, tries=2):
     for i in range(tries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            ctx = None
+            if host in INSECURE_HOSTS:
+                import ssl
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
                 return r.read().decode("utf-8", errors="replace")
         except urllib.error.HTTPError as e:
             last = e
@@ -178,6 +189,45 @@ def stooq_closes(symbol):
     return out
 
 
+def twse_taiex(months=13):
+    """Clôtures du Taiex depuis la bourse de Taïwan (un appel par mois). [(date, clôture)]."""
+    out = []
+    d = dt.date.today().replace(day=1)
+    for _ in range(months):
+        js = json.loads(get(f"https://www.twse.com.tw/exchangeReport/FMTQIK?response=json&date={d:%Y%m%d}"))
+        fields = js.get("fields") or []
+        col = next((i for i, f in enumerate(fields) if "指數" in f), 4)
+        for row in js.get("data") or []:
+            y, m, dd = row[0].split("/")
+            out.append((dt.date(int(y) + 1911, int(m), int(dd)).isoformat(), float(row[col].replace(",", ""))))
+        d = (d - dt.timedelta(days=1)).replace(day=1)
+        time.sleep(2)
+    out.sort()
+    if len(out) < 30:
+        raise ValueError("TWSE vide")
+    return out
+
+
+def naver_index(code="KOSPI", pages=3):
+    """Clôtures quotidiennes d'un indice coréen via Naver Finance. [(date, clôture)]."""
+    out = {}
+    for page in range(1, pages + 1):
+        js = json.loads(get(f"https://m.stock.naver.com/api/index/{code}/price?pageSize=100&page={page}"))
+        for o in js if isinstance(js, list) else js.get("result", []):
+            d = (o.get("localTradedAt") or o.get("localDate") or "")[:10].replace(".", "-")
+            c = o.get("closePrice") or o.get("closePriceRaw")
+            if len(d) == 8 and d.isdigit():
+                d = f"{d[:4]}-{d[4:6]}-{d[6:]}"
+            try:
+                out[d] = float(str(c).replace(",", ""))
+            except (TypeError, ValueError):
+                continue
+    pts = sorted((d, v) for d, v in out.items() if len(d) == 10)
+    if len(pts) < 30:
+        raise ValueError(f"Naver {code} vide")
+    return pts
+
+
 def treasury_10y():
     """Taux US à 10 ans depuis le site du Trésor américain. (date, valeur)."""
     y = dt.date.today().year
@@ -239,6 +289,11 @@ def stoxx_official(code="sxxp"):
     out.sort()
     if len(out) < 30:
         raise ValueError("fichier STOXX illisible")
+    last_d, last_v = out[-1]
+    if not 200 < last_v < 2000:
+        raise ValueError(f"valeur STOXX incohérente ({last_v})")
+    if (dt.date.today() - dt.date.fromisoformat(last_d)).days > 7:
+        raise ValueError(f"fichier STOXX périmé ({last_d})")
     return out
 
 
@@ -262,7 +317,10 @@ def bls_cpi_yoy():
     pts = {}
     for o in d["Results"]["series"][0]["data"]:
         if o["period"].startswith("M") and o["period"] != "M13":
-            pts[(int(o["year"]), int(o["period"][1:]))] = float(o["value"])
+            try:
+                pts[(int(o["year"]), int(o["period"][1:]))] = float(o["value"])
+            except ValueError:
+                continue  # mois non publié (ex. shutdown d'octobre 2025)
     last = max(pts)
     prev = (last[0] - 1, last[1])
     if prev not in pts:
@@ -271,13 +329,19 @@ def bls_cpi_yoy():
 
 
 def ecb_hicp_euro_area():
-    """Inflation zone euro sur un an (HICP), BCE. Renvoie (période, valeur)."""
-    url = ("https://data-api.ecb.europa.eu/service/data/ICP/M.U2.N.000000.4.ANR"
-           "?format=csvdata&lastNObservations=1")
-    reader = csv.DictReader(io.StringIO(get(url)))
-    for row in reader:
-        return row["TIME_PERIOD"], float(row["OBS_VALUE"])
-    raise ValueError("BCE HICP vide")
+    """Inflation zone euro sur un an (HICP), BCE. Les codes ont changé début 2026
+    (nouvelle nomenclature) : on prend tous les postes et on garde l'indice global."""
+    url = ("https://data-api.ecb.europa.eu/service/data/ICP/M.U2.N..4.ANR"
+           "?format=csvdata&lastNObservations=1&detail=dataonly")
+    rows = list(csv.DictReader(io.StringIO(get(url, timeout=40))))
+    if not rows:
+        raise ValueError("BCE HICP vide")
+    latest = max(r["TIME_PERIOD"] for r in rows)
+    fresh = {r["ICP_ITEM"]: r for r in rows if r["TIME_PERIOD"] == latest}
+    for item in ("000000", "TOTAL", "_T", "CP00", "00"):
+        if item in fresh:
+            return latest, float(fresh[item]["OBS_VALUE"]), f"BCE {item}"
+    raise ValueError(f"indice global introuvable, postes {latest}: {sorted(fresh)[:12]}")
 
 
 def slickcharts_top10():
@@ -443,24 +507,38 @@ def main():
         return first_ok(from_ecb, from_fred)
 
     def eu_cpi():
-        d, v, geo = eurostat_hicp_euro_area()
-        return {"value": round(v, 2), "date": d, "source": f"Eurostat, HICP {geo} sur 12 mois"}
+        def fresh(res):
+            d = res[0]
+            age = (dt.date.today() - dt.date.fromisoformat(d + "-01")).days
+            if age > 120:
+                raise ValueError(f"série arrêtée en {d}")
+            return res
+        d, v, src = first_ok(lambda: fresh(ecb_hicp_euro_area()), lambda: fresh(eurostat_hicp_euro_area()))
+        return {"value": round(v, 2), "date": d, "source": f"HICP zone euro sur 12 mois ({src})"}
 
     run("stoxxDD", stoxx)
     run("bund10y", bund)
     run("euCpi", eu_cpi)
 
     # ---- Asie (plus haut sur 52 semaines)
-    def asia(ticker, stooq_sym, label):
+    def asia(ticker, official, label):
         def f():
-            closes = yahoo_closes(ticker, "2y")
-            b = drawdown_block(closes, today, window_days=365)
-            b["source"] = f"Yahoo {ticker} ({label})"
+            src = {}
+
+            def off():
+                src["n"] = f"{label}, source officielle"
+                return official()
+
+            def yah():
+                src["n"] = f"Yahoo {ticker}"
+                return yahoo_closes(ticker, "2y")
+            b = drawdown_block(first_ok(off, yah), today, window_days=365)
+            b["source"] = src["n"]
             return b
         return f
 
-    run("kospiDD", asia("^KS11", "^kospi", "Kospi"))
-    run("taiexDD", asia("^TWII", "^twse", "Taiex"))
+    run("kospiDD", asia("^KS11", naver_index, "Kospi (Naver)"))
+    run("taiexDD", asia("^TWII", twse_taiex, "Taiex (TWSE)"))
 
     out = {
         "updated": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ"),
