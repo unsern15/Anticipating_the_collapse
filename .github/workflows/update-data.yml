@@ -26,6 +26,8 @@ jobs:
           python-version: "3.12"
 
       - name: Récupérer les indicateurs
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python scripts/fetch_data.py
 
       - name: Enregistrer si quelque chose a changé

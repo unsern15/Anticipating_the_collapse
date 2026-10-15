@@ -67,8 +67,17 @@ def first_ok(*fns):
 # ---------------------------------------------------------------- sources
 
 def fred_series(series_id):
-    """Série FRED en CSV public (pas de clé). Renvoie [(date, valeur)] sans les trous."""
+    """Série FRED. Avec la clé gratuite FRED_API_KEY (secret GitHub) on passe par l'API
+    officielle, plus fiable ; sinon par le CSV public. Renvoie [(date, valeur)]."""
     start = (dt.date.today() - dt.timedelta(days=800)).isoformat()
+    key = os.environ.get("FRED_API_KEY", "").strip()
+    if key:
+        d = json.loads(get("https://api.stlouisfed.org/fred/series/observations"
+                           f"?series_id={series_id}&api_key={key}&file_type=json&observation_start={start}"))
+        out = [(o["date"], float(o["value"])) for o in d.get("observations", []) if o.get("value") not in ("", ".")]
+        if out:
+            return out
+        raise ValueError(f"FRED API {series_id} vide")
     txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}")
     rows = list(csv.reader(io.StringIO(txt)))
     out = []
@@ -101,11 +110,45 @@ def cboe_history(name):
     return out
 
 
+_YAHOO = {}
+
+
+def _yahoo_session():
+    """Yahoo limite les robots sans cookie : on récupère un cookie et un « crumb » une fois."""
+    if "opener" in _YAHOO:
+        return _YAHOO["opener"], _YAHOO["crumb"]
+    import http.cookiejar
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener.addheaders = [("User-Agent", UA), ("Accept", "*/*"), ("Accept-Language", "en-US,en;q=0.9")]
+    for u in ("https://fc.yahoo.com", "https://finance.yahoo.com/"):
+        try:
+            opener.open(u, timeout=20).read()
+        except Exception:  # noqa: BLE001 - fc.yahoo.com renvoie souvent 404 mais pose le cookie
+            pass
+    crumb = opener.open("https://query2.finance.yahoo.com/v1/test/getcrumb", timeout=20).read().decode().strip()
+    _YAHOO.update(opener=opener, crumb=crumb)
+    return opener, crumb
+
+
 def yahoo_closes(ticker, rng="10y"):
     """Clôtures quotidiennes d'un indice via le graphique Yahoo Finance. [(date, clôture)]."""
     q = urllib.request.quote(ticker)
+
+    def with_crumb():
+        opener, crumb = _yahoo_session()
+        url = (f"https://query2.finance.yahoo.com/v8/finance/chart/{q}?range={rng}&interval=1d"
+               f"&crumb={urllib.request.quote(crumb)}")
+        for i in range(3):
+            try:
+                return opener.open(url, timeout=25).read().decode()
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or i == 2:
+                    raise
+                time.sleep(8 * (i + 1))
+
     data = json.loads(first_ok(
-        lambda: get(f"https://query2.finance.yahoo.com/v8/finance/chart/{q}?range={rng}&interval=1d", tries=2),
+        with_crumb,
         lambda: get(f"https://query1.finance.yahoo.com/v8/finance/chart/{q}?range={rng}&interval=1d", tries=2),
     ))
     res = data["chart"]["result"][0]
@@ -156,16 +199,75 @@ def treasury_10y():
 
 
 def eurostat_hicp_euro_area():
-    """Inflation zone euro sur un an (HICP), Eurostat. Renvoie (période, valeur)."""
-    url = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_manr"
-           "?format=JSON&lang=EN&geo=EA&coicop=CP00&lastTimePeriod=1")
-    d = json.loads(get(url))
-    idx = d["dimension"]["time"]["category"]["index"]
-    period = max(idx, key=lambda k: idx[k])
-    val = d["value"].get(str(idx[period]))
-    if val is None:
+    """Inflation zone euro sur un an (HICP), Eurostat. Le code de la zone change quand un
+    pays rejoint l'euro (EA20, puis EA21 avec la Bulgarie en 2026) : on garde le plus récent."""
+    best = None
+    for geo in ("EA21", "EA", "EA20"):
+        try:
+            url = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_manr"
+                   f"?format=JSON&lang=EN&geo={geo}&coicop=CP00&sinceTimePeriod={dt.date.today().year - 1}-01")
+            d = json.loads(get(url))
+            idx = d["dimension"]["time"]["category"]["index"]
+            vals = d.get("value", {})
+            have = [k for k in idx if str(idx[k]) in vals]
+            if not have:
+                continue
+            period = max(have)
+            cand = (period, float(vals[str(idx[period])]), geo)
+            if best is None or cand[0] > best[0]:
+                best = cand
+        except Exception:  # noqa: BLE001
+            continue
+    if not best:
         raise ValueError("Eurostat HICP vide")
-    return period, float(val)
+    return best
+
+
+def stoxx_official(code="sxxp"):
+    """Historique officiel STOXX (fichier texte public). [(date, valeur)]."""
+    txt = get(f"https://www.stoxx.com/document/Indices/Current/HistoricalData/h_3{code}.txt")
+    out = []
+    for line in txt.splitlines():
+        parts = [p.strip() for p in line.split(";")]
+        if len(parts) < 3:
+            continue
+        try:
+            d = dt.datetime.strptime(parts[0], "%d.%m.%Y").date().isoformat()
+            out.append((d, float(parts[2])))
+        except ValueError:
+            continue
+    out.sort()
+    if len(out) < 30:
+        raise ValueError("fichier STOXX illisible")
+    return out
+
+
+def ecb_euro_aaa_10y():
+    """Taux 10 ans de la courbe zone euro notée AAA (BCE, quotidien). Très proche du Bund."""
+    url = ("https://data-api.ecb.europa.eu/service/data/YC/B.U2.EUR.4F.G_N_A.SV_C_YM.SR_10Y"
+           "?format=csvdata&lastNObservations=1")
+    for row in csv.DictReader(io.StringIO(get(url))):
+        return row["TIME_PERIOD"], float(row["OBS_VALUE"])
+    raise ValueError("BCE courbe AAA vide")
+
+
+def bls_cpi_yoy():
+    """Inflation US sur 12 mois depuis le BLS (série CUUR0000SA0, sans clé). (période, valeur)."""
+    y = dt.date.today().year
+    body = json.dumps({"seriesid": ["CUUR0000SA0"], "startyear": str(y - 1), "endyear": str(y)}).encode()
+    req = urllib.request.Request("https://api.bls.gov/publicAPI/v1/timeseries/data/", data=body,
+                                 headers={"User-Agent": UA, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        d = json.loads(r.read().decode())
+    pts = {}
+    for o in d["Results"]["series"][0]["data"]:
+        if o["period"].startswith("M") and o["period"] != "M13":
+            pts[(int(o["year"]), int(o["period"][1:]))] = float(o["value"])
+    last = max(pts)
+    prev = (last[0] - 1, last[1])
+    if prev not in pts:
+        raise ValueError("BLS : pas de point il y a un an")
+    return f"{last[0]}-{last[1]:02d}", round((pts[last] / pts[prev] - 1) * 100, 2)
 
 
 def ecb_hicp_euro_area():
@@ -283,10 +385,15 @@ def main():
         return {"value": round((v - s[-6][1]) * 100, 0), "date": d, "source": "FRED BAMLH0A0HYM2, 5 séances"}
 
     def us_cpi():
-        s = fred_series("CPIAUCSL")
-        d, v = s[-1]
-        prev = s[-13][1]
-        return {"value": round((v / prev - 1) * 100, 2), "date": d, "source": "FRED CPIAUCSL, sur 12 mois"}
+        def from_bls():
+            d, v = bls_cpi_yoy()
+            return {"value": v, "date": d, "source": "BLS, CPI sur 12 mois"}
+
+        def from_fred():
+            s = fred_series("CPIAUCSL")
+            d, v = s[-1]
+            return {"value": round((v / s[-13][1] - 1) * 100, 2), "date": d, "source": "FRED CPIAUCSL, sur 12 mois"}
+        return first_ok(from_bls, from_fred)
 
     def us10y():
         def from_treasury():
@@ -311,18 +418,33 @@ def main():
 
     # ---- Europe
     def stoxx():
-        closes = first_ok(lambda: yahoo_closes("^STOXX", "10y"), lambda: stooq_closes("^stoxx"))
+        src = {}
+
+        def official():
+            src["n"] = "STOXX officiel (SXXP)"
+            return stoxx_official("sxxp")
+
+        def yahoo():
+            src["n"] = "Yahoo ^STOXX"
+            return yahoo_closes("^STOXX", "10y")
+        closes = first_ok(official, yahoo)
         b = drawdown_block(closes, today)
-        b["source"] = "Yahoo ^STOXX (Stoxx Europe 600)"
+        b["source"] = src["n"]
         return b
 
     def bund():
-        d, v = fred_series("IRLTLT01DEM156N")[-1]
-        return {"value": round(v, 2), "date": d, "source": "FRED IRLTLT01DEM156N (moyenne mensuelle)"}
+        def from_ecb():
+            d, v = ecb_euro_aaa_10y()
+            return {"value": round(v, 2), "date": d, "source": "BCE, taux 10 ans zone euro AAA"}
+
+        def from_fred():
+            d, v = fred_series("IRLTLT01DEM156N")[-1]
+            return {"value": round(v, 2), "date": d, "source": "FRED Bund 10 ans (moyenne mensuelle)"}
+        return first_ok(from_ecb, from_fred)
 
     def eu_cpi():
-        d, v = eurostat_hicp_euro_area()
-        return {"value": round(v, 2), "date": d, "source": "Eurostat, HICP zone euro sur 12 mois"}
+        d, v, geo = eurostat_hicp_euro_area()
+        return {"value": round(v, 2), "date": d, "source": f"Eurostat, HICP {geo} sur 12 mois"}
 
     run("stoxxDD", stoxx)
     run("bund10y", bund)
@@ -331,7 +453,7 @@ def main():
     # ---- Asie (plus haut sur 52 semaines)
     def asia(ticker, stooq_sym, label):
         def f():
-            closes = first_ok(lambda: yahoo_closes(ticker, "2y"), lambda: stooq_closes(stooq_sym))
+            closes = yahoo_closes(ticker, "2y")
             b = drawdown_block(closes, today, window_days=365)
             b["source"] = f"Yahoo {ticker} ({label})"
             return b
