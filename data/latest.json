@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-15T13:26:03Z",
+  "updated": "2026-10-15T13:55:40Z",
   "values": {
     "vix": {
       "value": 16.87,
@@ -27,16 +27,15 @@
       "source": "slickcharts.com"
     },
     "stoxxDD": {
-      "value": -1.87,
+      "value": -2.91,
       "date": "2026-10-14",
       "last": 637.75,
-      "high": 649.9,
-      "highDate": "2026-09-07",
+      "high": 656.86,
+      "highDate": "2026-08",
       "chg1m": 0.28,
       "weeklyClose": 631.55,
       "weeklyDate": "2026-10-09",
-      "source": "abcbourse + historique du robot",
-      "partialHistory": true
+      "source": "abcbourse + historique du robot"
     },
     "bund10y": {
       "value": 3.51,
