@@ -18,14 +18,22 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "latest.json")
 
 
-def get(url, timeout=45, tries=3):
-    """Téléchargement avec quelques nouvelles tentatives (sources lentes ou qui limitent)."""
+DEAD_HOSTS = set()
+
+
+def get(url, timeout=25, tries=2):
+    """Téléchargement avec une nouvelle tentative. Un site qui ne répond pas du tout
+    est mis de côté pour le reste du passage, pour ne pas bloquer le robot."""
+    host = urllib.parse.urlparse(url).netloc
+    if host in DEAD_HOSTS:
+        raise TimeoutError(f"{host} déjà injoignable ce soir")
     last = None
     for i in range(tries):
         try:
@@ -38,6 +46,9 @@ def get(url, timeout=45, tries=3):
                 raise
         except Exception as e:  # noqa: BLE001
             last = e
+            if isinstance(e, TimeoutError) or "timed out" in str(e):
+                DEAD_HOSTS.add(host)
+                raise
         time.sleep(5 * (i + 1))
     raise last
 
@@ -229,14 +240,15 @@ def main():
     values, errors = {}, {}
 
     def run(key, fn):
+        t0 = time.time()
         try:
             values[key] = fn()
+            print(f"  ok   {key} ({time.time() - t0:.0f}s): {values[key].get('value')} [{values[key].get('source')}]", flush=True)
         except Exception as e:  # noqa: BLE001 - on veut tout attraper, la page gère l'absence
-            errors[key] = f"{type(e).__name__}: {e}"[:200]
+            errors[key] = f"{type(e).__name__}: {e}"[:300]
+            print(f"  ÉCHEC {key} ({time.time() - t0:.0f}s): {errors[key]}", flush=True)
 
     # ---- US
-    vix_cache = {}
-
     def vix():
         def from_cboe():
             h = cboe_history("VIX")
