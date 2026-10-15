@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-15T13:16:33Z",
+  "updated": "2026-10-15T13:19:37Z",
   "values": {
     "vix": {
       "value": 16.87,
@@ -21,19 +21,23 @@
       "date": "2026-10-15",
       "source": "slickcharts.com"
     },
+    "bund10y": {
+      "value": 3.51,
+      "date": "2026-10-14",
+      "source": "BCE, taux 10 ans zone euro AAA"
+    },
     "euCpi": {
       "value": 2.0,
       "date": "2025-12",
-      "source": "Eurostat, HICP zone euro sur 12 mois"
+      "source": "Eurostat, HICP EA sur 12 mois"
     }
   },
   "errors": {
     "hyStruct": "TimeoutError: The read operation timed out",
     "hyAccel": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
-    "usCpi": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
-    "stoxxDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^stoxx vide",
-    "bund10y": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
-    "kospiDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^kospi vide",
-    "taiexDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^twse vide"
+    "usCpi": "RuntimeError: ValueError: could not convert string to float: '-' | TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
+    "stoxxDD": "RuntimeError: URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unabl | RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To",
+    "kospiDD": "RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: Too Many Requests",
+    "taiexDD": "RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: Too Many Requests"
   }
 }
