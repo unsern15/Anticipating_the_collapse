@@ -549,6 +549,28 @@ def main():
             return {"value": round(v, 2), "date": d, "source": "FRED DGS10"}
         return first_ok(from_treasury, from_fred)
 
+    def buffett():
+        """Valeur des actions des entreprises US (Fed, comptes financiers Z.1, millions $)
+        divisée par le PIB nominal (milliards $). Trimestriel, publié avec retard."""
+        gdp = dict(fred_series("GDP"))
+        out = {}
+        for sid in ("BOGZ1FL893064105Q", "NCBEILQ027S"):
+            try:
+                eq = fred_series(sid)
+                common = [d for d, _ in eq if d in gdp]
+                d = common[-1]
+                out[sid] = (d, dict(eq)[d] / 1000 / gdp[d] * 100)
+            except Exception:  # noqa: BLE001
+                continue
+        if not out:
+            raise ValueError("séries Fed indisponibles")
+        sid = "BOGZ1FL893064105Q" if "BOGZ1FL893064105Q" in out else "NCBEILQ027S"
+        d, v = out[sid]
+        res = {"value": round(v, 1), "date": d, "source": f"Fed Z.1 {sid} / PIB, trimestriel"}
+        if len(out) == 2:
+            res["alt"] = {k: round(x[1], 1) for k, x in out.items()}
+        return res
+
     def concentration():
         return {"value": slickcharts_top10(), "date": today.isoformat(), "source": "slickcharts.com"}
 
@@ -559,6 +581,7 @@ def main():
     run("usCpi", us_cpi)
     run("us10y", us10y)
     run("concentration", concentration)
+    run("buffett", buffett)
 
     # ---- Europe
     def stoxx():
