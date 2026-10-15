@@ -1,10 +1,20 @@
 {
-  "updated": "2026-10-15T13:02:31Z",
+  "updated": "2026-10-15T13:16:33Z",
   "values": {
+    "vix": {
+      "value": 16.87,
+      "date": "2026-10-14",
+      "source": "Cboe VIX"
+    },
     "vixTerm": {
       "value": -2.28,
       "date": "2026-10-14",
       "source": "Cboe VIX9D - VIX"
+    },
+    "us10y": {
+      "value": 5.19,
+      "date": "2026-10-14",
+      "source": "Trésor US"
     },
     "concentration": {
       "value": 38.8,
@@ -12,20 +22,18 @@
       "source": "slickcharts.com"
     },
     "euCpi": {
-      "value": 1.9,
+      "value": 2.0,
       "date": "2025-12",
-      "source": "BCE, HICP zone euro sur 12 mois"
+      "source": "Eurostat, HICP zone euro sur 12 mois"
     }
   },
   "errors": {
-    "vix": "TimeoutError: The read operation timed out",
     "hyStruct": "TimeoutError: The read operation timed out",
-    "hyAccel": "TimeoutError: The read operation timed out",
-    "usCpi": "TimeoutError: The read operation timed out",
-    "us10y": "TimeoutError: The read operation timed out",
-    "stoxxDD": "HTTPError: HTTP Error 429: Too Many Requests",
-    "bund10y": "TimeoutError: The read operation timed out",
-    "kospiDD": "HTTPError: HTTP Error 429: Too Many Requests",
-    "taiexDD": "HTTPError: HTTP Error 429: Too Many Requests"
+    "hyAccel": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
+    "usCpi": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
+    "stoxxDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^stoxx vide",
+    "bund10y": "TimeoutError: fred.stlouisfed.org déjà injoignable ce soir",
+    "kospiDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^kospi vide",
+    "taiexDD": "RuntimeError: RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To | ValueError: stooq ^twse vide"
   }
 }
