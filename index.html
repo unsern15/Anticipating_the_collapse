@@ -199,14 +199,7 @@
 
   <!-- ============ US ============ -->
   <div class="view" id="view-us">
-    <div class="global">
-      <div>
-        <div class="global-score" id="globalScore">n/d</div>
-        <div class="global-label" id="globalLabel">en attente</div>
-      </div>
-      <div class="global-text" id="globalText"></div>
-      <div class="meter"><div class="meter-mark" id="meterMark" style="left:0%"></div></div>
-    </div>
+    <div class="global"><div class="global-text" id="globalText"></div></div>
     <div class="actions">
       <button class="act" id="resetManualBtn">Effacer mes saisies manuelles</button>
       <span class="saved-flash" id="savedFrag">enregistré</span>
@@ -480,8 +473,9 @@ function recompute(){
     if(ind.stage===2) stage2Filled++;
     if(cls==="stress" && ind.stage===2) stressCount++; // seul l'étage « étincelle » compte comme signal de stress
   }
-  const scoreEl=document.getElementById("globalScore"),labelEl=document.getElementById("globalLabel"),
-    textEl=document.getElementById("globalText"),mark=document.getElementById("meterMark");
+  // Le score et la barre US sont affichés dans la vue d'ensemble en haut ; ici on ne garde que la lecture.
+  const dummy={style:{},set textContent(v){}};
+  const scoreEl=dummy,labelEl=dummy,mark=dummy,textEl=document.getElementById("globalText");
   if(filled===0){scoreEl.textContent="n/d";labelEl.textContent="en attente";mark.style.left="0%";
     textEl.innerHTML="Pas encore de données. Le score agrège la <strong>fragilité structurelle</strong>, le <strong>stress</strong> et les <strong>taux</strong>.";return;}
   const norm=sum/maxSum,pct=Math.round(norm*100);
@@ -504,7 +498,7 @@ function recompute(){
   else if(stressCount>=2) msg=`<strong>${stressCount} signaux de stress allumés.</strong> La grille de paliers doit s'exécuter mécaniquement sur le prix, sans réinterprétation.`;
   else if(stressCount===1) msg="<strong>Un signal de stress isolé.</strong> Possible faux signal. Attendre un deuxième avant de conclure.";
   else msg="Structure et stress modérés. Rien d'actionnable.";
-  textEl.innerHTML=msg;
+  textEl.innerHTML=regionSummary("us")+"<br>"+msg;
 }
 
 // ===================== VUE D'ENSEMBLE =====================
