@@ -16,23 +16,49 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36"
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "latest.json")
 
 
-def get(url, timeout=30):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", errors="replace")
+def get(url, timeout=45, tries=3):
+    """Téléchargement avec quelques nouvelles tentatives (sources lentes ou qui limitent)."""
+    last = None
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code not in (429, 500, 502, 503, 504):
+                raise
+        except Exception as e:  # noqa: BLE001
+            last = e
+        time.sleep(5 * (i + 1))
+    raise last
+
+
+def first_ok(*fns):
+    """Essaie plusieurs sources dans l'ordre, renvoie la première qui marche."""
+    errs = []
+    for fn in fns:
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"{type(e).__name__}: {e}"[:90])
+    raise RuntimeError(" | ".join(errs))
 
 
 # ---------------------------------------------------------------- sources
 
 def fred_series(series_id):
     """Série FRED en CSV public (pas de clé). Renvoie [(date, valeur)] sans les trous."""
-    txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}")
+    start = (dt.date.today() - dt.timedelta(days=800)).isoformat()
+    txt = get(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}&cosd={start}")
     rows = list(csv.reader(io.StringIO(txt)))
     out = []
     for row in rows[1:]:
@@ -66,8 +92,11 @@ def cboe_history(name):
 
 def yahoo_closes(ticker, rng="10y"):
     """Clôtures quotidiennes d'un indice via le graphique Yahoo Finance. [(date, clôture)]."""
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.request.quote(ticker)}?range={rng}&interval=1d"
-    data = json.loads(get(url))
+    q = urllib.request.quote(ticker)
+    data = json.loads(first_ok(
+        lambda: get(f"https://query2.finance.yahoo.com/v8/finance/chart/{q}?range={rng}&interval=1d", tries=2),
+        lambda: get(f"https://query1.finance.yahoo.com/v8/finance/chart/{q}?range={rng}&interval=1d", tries=2),
+    ))
     res = data["chart"]["result"][0]
     ts = res["timestamp"]
     closes = res["indicators"]["quote"][0]["close"]
@@ -79,6 +108,53 @@ def yahoo_closes(ticker, rng="10y"):
     if not out:
         raise ValueError(f"Yahoo {ticker} vide")
     return out
+
+
+def stooq_closes(symbol):
+    """Clôtures quotidiennes depuis stooq.com (CSV gratuit). [(date, clôture)]."""
+    txt = get(f"https://stooq.com/q/d/l/?s={urllib.request.quote(symbol)}&i=d", tries=2)
+    out = []
+    for row in csv.DictReader(io.StringIO(txt)):
+        try:
+            out.append((row["Date"], float(row["Close"])))
+        except (KeyError, ValueError, TypeError):
+            continue
+    if len(out) < 30:
+        raise ValueError(f"stooq {symbol} vide")
+    return out
+
+
+def treasury_10y():
+    """Taux US à 10 ans depuis le site du Trésor américain. (date, valeur)."""
+    y = dt.date.today().year
+    url = ("https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
+           f"daily-treasury-rates.csv/{y}/all?type=daily_treasury_yield_curve&field_tdr_date_value={y}&page&_format=csv")
+    rows = list(csv.DictReader(io.StringIO(get(url))))
+    best = None
+    for row in rows:
+        try:
+            d = dt.datetime.strptime(row["Date"], "%m/%d/%Y").date().isoformat()
+            v = float(row["10 Yr"])
+        except (KeyError, ValueError):
+            continue
+        if best is None or d > best[0]:
+            best = (d, v)
+    if not best:
+        raise ValueError("Trésor US vide")
+    return best
+
+
+def eurostat_hicp_euro_area():
+    """Inflation zone euro sur un an (HICP), Eurostat. Renvoie (période, valeur)."""
+    url = ("https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/prc_hicp_manr"
+           "?format=JSON&lang=EN&geo=EA&coicop=CP00&lastTimePeriod=1")
+    d = json.loads(get(url))
+    idx = d["dimension"]["time"]["category"]["index"]
+    period = max(idx, key=lambda k: idx[k])
+    val = d["value"].get(str(idx[period]))
+    if val is None:
+        raise ValueError("Eurostat HICP vide")
+    return period, float(val)
 
 
 def ecb_hicp_euro_area():
@@ -162,10 +238,15 @@ def main():
     vix_cache = {}
 
     def vix():
-        s = fred_series("VIXCLS")
-        vix_cache["fred"] = dict(s)
-        d, v = s[-1]
-        return {"value": round(v, 2), "date": d, "source": "FRED VIXCLS"}
+        def from_cboe():
+            h = cboe_history("VIX")
+            d = max(h)
+            return {"value": round(h[d], 2), "date": d, "source": "Cboe VIX"}
+
+        def from_fred():
+            d, v = fred_series("VIXCLS")[-1]
+            return {"value": round(v, 2), "date": d, "source": "FRED VIXCLS"}
+        return first_ok(from_cboe, from_fred)
 
     def vix_term():
         v9 = cboe_history("VIX9D")
@@ -196,8 +277,14 @@ def main():
         return {"value": round((v / prev - 1) * 100, 2), "date": d, "source": "FRED CPIAUCSL, sur 12 mois"}
 
     def us10y():
-        d, v = fred_series("DGS10")[-1]
-        return {"value": round(v, 2), "date": d, "source": "FRED DGS10"}
+        def from_treasury():
+            d, v = treasury_10y()
+            return {"value": round(v, 2), "date": d, "source": "Trésor US"}
+
+        def from_fred():
+            d, v = fred_series("DGS10")[-1]
+            return {"value": round(v, 2), "date": d, "source": "FRED DGS10"}
+        return first_ok(from_treasury, from_fred)
 
     def concentration():
         return {"value": slickcharts_top10(), "date": today.isoformat(), "source": "slickcharts.com"}
@@ -212,7 +299,8 @@ def main():
 
     # ---- Europe
     def stoxx():
-        b = drawdown_block(yahoo_closes("^STOXX", "10y"), today)
+        closes = first_ok(lambda: yahoo_closes("^STOXX", "10y"), lambda: stooq_closes("^stoxx"))
+        b = drawdown_block(closes, today)
         b["source"] = "Yahoo ^STOXX (Stoxx Europe 600)"
         return b
 
@@ -221,23 +309,24 @@ def main():
         return {"value": round(v, 2), "date": d, "source": "FRED IRLTLT01DEM156N (moyenne mensuelle)"}
 
     def eu_cpi():
-        d, v = ecb_hicp_euro_area()
-        return {"value": round(v, 2), "date": d, "source": "BCE, HICP zone euro sur 12 mois"}
+        d, v = eurostat_hicp_euro_area()
+        return {"value": round(v, 2), "date": d, "source": "Eurostat, HICP zone euro sur 12 mois"}
 
     run("stoxxDD", stoxx)
     run("bund10y", bund)
     run("euCpi", eu_cpi)
 
     # ---- Asie (plus haut sur 52 semaines)
-    def asia(ticker, label):
+    def asia(ticker, stooq_sym, label):
         def f():
-            b = drawdown_block(yahoo_closes(ticker, "2y"), today, window_days=365)
+            closes = first_ok(lambda: yahoo_closes(ticker, "2y"), lambda: stooq_closes(stooq_sym))
+            b = drawdown_block(closes, today, window_days=365)
             b["source"] = f"Yahoo {ticker} ({label})"
             return b
         return f
 
-    run("kospiDD", asia("^KS11", "Kospi"))
-    run("taiexDD", asia("^TWII", "Taiex"))
+    run("kospiDD", asia("^KS11", "^kospi", "Kospi"))
+    run("taiexDD", asia("^TWII", "^twse", "Taiex"))
 
     out = {
         "updated": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ"),

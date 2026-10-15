@@ -265,7 +265,7 @@ const INDICATORS = {
   euCpi: { region:"eu", stage:1, name:"Inflation zone euro (sur 12 mois)", unit:"%", dir:"up", zones:[2.5,3.5],
     desc:"Hausse des prix sur un an. La cible de la BCE est 2 %. Au-dessus, la BCE peut remonter ses taux.",
     thresholds:"calme < 2,5 · vigilance 2,5 à 3,5 · stress > 3,5",
-    source:"BCE, HICP", sourceUrl:"https://data.ecb.europa.eu/data/datasets/ICP" },
+    source:"Eurostat, HICP", sourceUrl:"https://ec.europa.eu/eurostat/databrowser/view/prc_hicp_manr/default/table" },
 
   // ---- US, étage 1 : fragilité structurelle
   concentration: { region:"us", stage:1, name:"Concentration top 10 (S&P 500)", unit:"%", dir:"up", zones:[35,42],
@@ -288,7 +288,7 @@ const INDICATORS = {
   vix: { region:"us", stage:2, name:"VIX (peur du marché)", unit:"", dir:"up", zones:[20,30],
     desc:"Stress immédiat mesuré sur les options. Calme sous 15, panique au-dessus de 30.",
     thresholds:"calme < 20 · vigilance 20 à 30 · stress > 30 · 82,7 en mars 2020",
-    source:"FRED VIXCLS", sourceUrl:"https://fred.stlouisfed.org/series/VIXCLS" },
+    source:"Cboe / FRED VIXCLS", sourceUrl:"https://www.cboe.com/tradable_products/vix/" },
   vixTerm: { region:"us", stage:2, name:"Peur court terme (VIX9D moins VIX)", unit:"pts", dir:"up", zones:[0,3],
     desc:"Peur à 9 jours moins peur à 30 jours. Positif = le danger est maintenant, pas plus tard.",
     thresholds:"calme < 0 · vigilance 0 à 3 · stress > 3 · le passage en positif est le signal",
