@@ -24,6 +24,27 @@
   .asof { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
   .asof.stale { color: var(--watch); }
 
+  .overview { margin: 18px 0 4px; }
+  .ov-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .ov-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+    cursor: pointer; text-align: left; color: var(--ink); font-family: var(--sans); }
+  .ov-card:hover { border-color: var(--accent); }
+  .ov-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .ov-name { font-size: 13px; color: var(--ink-dim); }
+  .ov-score { font-family: var(--mono); font-size: 22px; font-weight: 600; }
+  .ov-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
+  .ov-meter { height: 6px; border-radius: 3px; margin-top: 10px; position: relative; opacity: .85;
+    background: linear-gradient(90deg,var(--calm) 0%,var(--watch) 55%,var(--stress) 100%); }
+  .ov-mark { position: absolute; top: -3px; width: 3px; height: 12px; background: var(--ink); border-radius: 2px; transform: translateX(-50%); }
+  .ov-line { background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 11px 14px;
+    margin-top: 10px; font-size: 13.5px; color: var(--ink-dim); }
+  .ov-line b { color: var(--ink); }
+  .ov-line.action { border-left: 3px solid var(--watch); }
+  .ov-alert { background: rgba(229,83,75,0.08); border: 1px solid rgba(229,83,75,0.3); border-radius: 9px;
+    padding: 10px 14px; margin-top: 10px; font-size: 13px; color: var(--ink-dim); }
+  .ov-alert b { color: var(--stress); }
+  @media (max-width: 640px) { .ov-card { padding: 10px; } .ov-score { font-size: 18px; } .ov-name { font-size: 12px; } }
+
   .tabs { display: flex; gap: 4px; margin: 22px 0 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--ink-dim);
     font-family: var(--sans); font-size: 14px; padding: 10px 14px; cursor: pointer; white-space: nowrap; }
@@ -146,6 +167,16 @@
     <div class="asof" id="asof">chargement…</div>
   </div>
   <div style="font-family:var(--mono);font-size:10px;color:var(--ink-faint);text-align:right;margin-top:2px">v5 · données automatiques</div>
+
+  <div class="overview">
+    <div class="ov-row">
+      <button class="ov-card" data-go="eu"><div class="ov-head"><span class="ov-name">Europe</span><span class="ov-score" id="ov-eu-s">n/d</span></div><div class="ov-label" id="ov-eu-l">en attente</div><div class="ov-meter"><div class="ov-mark" id="ov-eu-m" style="left:0%"></div></div></button>
+      <button class="ov-card" data-go="us"><div class="ov-head"><span class="ov-name">US</span><span class="ov-score" id="ov-us-s">n/d</span></div><div class="ov-label" id="ov-us-l">en attente</div><div class="ov-meter"><div class="ov-mark" id="ov-us-m" style="left:0%"></div></div></button>
+      <button class="ov-card" data-go="asia"><div class="ov-head"><span class="ov-name">Asie</span><span class="ov-score" id="ov-asia-s">n/d</span></div><div class="ov-label" id="ov-asia-l">en attente</div><div class="ov-meter"><div class="ov-mark" id="ov-asia-m" style="left:0%"></div></div></button>
+    </div>
+    <div class="ov-line" id="ov-paliers">Paliers : en attente des données.</div>
+    <div class="ov-alert" id="ov-alert" style="display:none"></div>
+  </div>
 
   <div class="tabs">
     <button class="tab active" data-view="eu">Europe</button>
@@ -433,6 +464,7 @@ function regionSummary(region){
   return txt;
 }
 function recompute(){
+  renderOverview();
   document.getElementById("sum-eu").innerHTML=regionSummary("eu");
   document.getElementById("sum-asia").innerHTML=regionSummary("asia");
 
@@ -475,6 +507,57 @@ function recompute(){
   textEl.innerHTML=msg;
 }
 
+// ===================== VUE D'ENSEMBLE =====================
+function regionScore(region){
+  let sum=0,max=0,filled=0;
+  for(const [id,ind] of Object.entries(INDICATORS)){
+    if(ind.region!==region) continue;
+    const w=(region==="us"&&ind.stage===2)?1.6:1.0, cls=classify(ind,valueOf(id).v);
+    max+=2*w; if(cls==="empty") continue; filled++; sum+=SCORE[cls]*w;
+  }
+  if(!filled) return null;
+  const norm=sum/max;
+  const label=norm<0.33?"calme":(norm<0.6?"tendu":"stress");
+  const color=norm<0.33?"var(--calm)":(norm<0.6?"var(--watch)":"var(--stress)");
+  return {pct:Math.round(norm*100),label,color};
+}
+function stressedNames(region){
+  return Object.entries(INDICATORS).filter(([id,ind])=>ind.region===region && classify(ind,valueOf(id).v)==="stress").map(([,ind])=>ind.name);
+}
+function renderOverview(){
+  const names={eu:"Europe",us:"US",asia:"Asie"}, alerts=[];
+  ["eu","us","asia"].forEach(r=>{
+    const sc=regionScore(r);
+    const sEl=document.getElementById(`ov-${r}-s`), lEl=document.getElementById(`ov-${r}-l`), mEl=document.getElementById(`ov-${r}-m`);
+    if(!sc){ sEl.textContent="n/d"; lEl.textContent="pas de donnée"; lEl.style.color="var(--ink-faint)"; mEl.style.left="0%"; return; }
+    sEl.textContent=sc.pct; sEl.style.color=sc.color; lEl.textContent=sc.label; lEl.style.color=sc.color; mEl.style.left=sc.pct+"%";
+    const hot=stressedNames(r);
+    if(hot.length) alerts.push(`<b>${names[r]}</b> : ${hot.map(esc).join(", ")}`);
+  });
+  const al=document.getElementById("ov-alert");
+  if(alerts.length){ al.style.display="block"; al.innerHTML="En stress : "+alerts.join(" · ")+"."; } else al.style.display="none";
+
+  // Ligne paliers : c'est elle qui décide des achats.
+  const line=document.getElementById("ov-paliers"), st=AUTO.stoxxDD||{};
+  const ath=num(gridState.athOverride)||(st.partialHistory?0:num(st.high))||0, last=num(st.last), weekly=num(st.weeklyClose);
+  line.classList.remove("action");
+  if(!ath||isNaN(last)){ line.innerHTML="Paliers : record ou dernière clôture du Stoxx 600 manquants. Voir l'onglet Paliers."; return; }
+  const dd=(last/ath-1)*100;
+  const reached=PALIERS_DEF.map((p,i)=>({p,i,level:ath*(1-p.pct/100)})).filter(x=>!isNaN(weekly)&&weekly<=x.level&&!gridState.done[x.i]);
+  if(reached.length){
+    const r=reached[reached.length-1]; line.classList.add("action");
+    line.innerHTML=`<b>Palier -${r.p.pct} % atteint</b> (clôture hebdo ${fr(weekly)} sous ${fr(r.level,0)}). La règle dit d'exécuter, sans réinterpréter. Coche-le une fois fait.`;
+    return;
+  }
+  const next=PALIERS_DEF.map((p,i)=>({p,i,level:ath*(1-p.pct/100)})).find(x=>!gridState.done[x.i]);
+  line.innerHTML=next
+    ?`Stoxx&nbsp;600 à <b>${fr(dd,1)}&nbsp;%</b> du record · prochain palier <b style="white-space:nowrap">-${next.p.pct}&nbsp;% à ${fr(next.level,0)}</b> (encore&nbsp;${fr((next.level/last-1)*100,1)}&nbsp;%). <b>Rien à faire.</b>`
+    :`Tous les paliers sont exécutés.`;
+}
+document.querySelectorAll(".ov-card").forEach(c=>c.addEventListener("click",()=>{
+  document.querySelector(`.tab[data-view="${c.dataset.go}"]`).click();
+}));
+
 // ===================== GRILLE =====================
 function renderGrid(){
   document.getElementById("pocket").value=gridState.pocket||"";
@@ -510,6 +593,7 @@ function renderGrid(){
   document.getElementById("paliers").innerHTML=html;
   document.getElementById("gNext").textContent=(next&&!isNaN(last))
     ?`-${next.p.pct} % à ${fr(next.level,0)} (encore ${fr((next.level/last-1)*100,1)} %)`:"n/d";
+  renderOverview();
   document.querySelectorAll(".pal-toggle").forEach(b=>b.addEventListener("click",e=>{
     const i=+e.target.dataset.i; gridState.done[i]=!gridState.done[i]; renderGrid(); saveAll(); flash("savedGrid");
   }));
