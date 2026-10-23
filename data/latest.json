@@ -1,15 +1,25 @@
 {
-  "updated": "2026-10-22T00:52:11Z",
+  "updated": "2026-10-23T00:54:10Z",
   "values": {
     "vix": {
-      "value": 17.31,
-      "date": "2026-10-20",
+      "value": 16.68,
+      "date": "2026-10-21",
       "source": "Cboe VIX"
     },
     "vixTerm": {
-      "value": -1.04,
-      "date": "2026-10-20",
+      "value": -1.19,
+      "date": "2026-10-21",
       "source": "Cboe VIX9D - VIX"
+    },
+    "hyStruct": {
+      "value": 3.27,
+      "date": "2026-10-21",
+      "source": "FRED BAMLH0A0HYM2"
+    },
+    "hyAccel": {
+      "value": 2.0,
+      "date": "2026-10-21",
+      "source": "FRED BAMLH0A0HYM2, 5 séances"
     },
     "usCpi": {
       "value": 3.74,
@@ -17,29 +27,37 @@
       "source": "BLS, CPI sur 12 mois"
     },
     "us10y": {
-      "value": 5.13,
-      "date": "2026-10-21",
+      "value": 4.96,
+      "date": "2026-10-22",
       "source": "Trésor US"
     },
     "concentration": {
-      "value": 38.6,
-      "date": "2026-10-22",
+      "value": 38.1,
+      "date": "2026-10-23",
       "source": "slickcharts.com"
     },
+    "buffett": {
+      "value": 255.0,
+      "date": "2026-04-01",
+      "source": "Fed Z.1 NCBEILQ027S / PIB, trimestriel",
+      "mean": 87.2,
+      "peak2000": 162.6,
+      "rank": 100
+    },
     "stoxxDD": {
-      "value": -1.88,
-      "date": "2026-10-21",
-      "last": 644.49,
+      "value": -2.91,
+      "date": "2026-10-22",
+      "last": 637.74,
       "high": 656.86,
       "highDate": "2026-08",
-      "chg1m": 0.4,
-      "weeklyClose": 644.74,
-      "weeklyDate": "2026-10-16",
+      "chg1m": -0.78,
+      "weeklyClose": 637.74,
+      "weeklyDate": "2026-10-22",
       "source": "abcbourse + historique du robot"
     },
     "bund10y": {
-      "value": 3.44,
-      "date": "2026-10-20",
+      "value": 3.43,
+      "date": "2026-10-21",
       "source": "BCE, taux 10 ans zone euro AAA"
     },
     "euCpi": {
@@ -48,31 +66,27 @@
       "source": "HICP zone euro sur 12 mois (Eurostat EA TOTAL)"
     },
     "kospiDD": {
-      "value": -37.24,
-      "date": "2026-10-22",
-      "last": 5720.16,
+      "value": -40.57,
+      "date": "2026-10-23",
+      "last": 5416.35,
       "high": 9114.55,
       "highDate": "2026-06-22",
-      "chg1m": -18.49,
-      "weeklyClose": 5668.05,
-      "weeklyDate": "2026-10-16",
+      "chg1m": -23.51,
+      "weeklyClose": 5416.35,
+      "weeklyDate": "2026-10-23",
       "source": "Kospi (Naver), source officielle"
     },
     "taiexDD": {
-      "value": -5.89,
-      "date": "2026-10-21",
-      "last": 46887.77,
+      "value": -7.59,
+      "date": "2026-10-22",
+      "last": 46041.43,
       "high": 49822.55,
       "highDate": "2026-10-06",
-      "chg1m": -1.74,
-      "weeklyClose": 47111.26,
-      "weeklyDate": "2026-10-16",
+      "chg1m": -3.68,
+      "weeklyClose": 46041.43,
+      "weeklyDate": "2026-10-22",
       "source": "Taiex (TWSE), source officielle"
     }
   },
-  "errors": {
-    "hyStruct": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
-    "hyAccel": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)",
-    "buffett": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
-  }
+  "errors": {}
 }
