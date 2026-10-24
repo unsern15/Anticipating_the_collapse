@@ -1,24 +1,24 @@
 {
-  "updated": "2026-10-23T00:54:10Z",
+  "updated": "2026-10-24T01:01:09Z",
   "values": {
     "vix": {
-      "value": 16.68,
-      "date": "2026-10-21",
+      "value": 19.03,
+      "date": "2026-10-22",
       "source": "Cboe VIX"
     },
     "vixTerm": {
-      "value": -1.19,
-      "date": "2026-10-21",
+      "value": -0.17,
+      "date": "2026-10-22",
       "source": "Cboe VIX9D - VIX"
     },
     "hyStruct": {
-      "value": 3.27,
-      "date": "2026-10-21",
+      "value": 3.4,
+      "date": "2026-10-22",
       "source": "FRED BAMLH0A0HYM2"
     },
     "hyAccel": {
-      "value": 2.0,
-      "date": "2026-10-21",
+      "value": 17.0,
+      "date": "2026-10-22",
       "source": "FRED BAMLH0A0HYM2, 5 séances"
     },
     "usCpi": {
@@ -27,13 +27,13 @@
       "source": "BLS, CPI sur 12 mois"
     },
     "us10y": {
-      "value": 4.96,
-      "date": "2026-10-22",
+      "value": 5.0,
+      "date": "2026-10-23",
       "source": "Trésor US"
     },
     "concentration": {
       "value": 38.1,
-      "date": "2026-10-23",
+      "date": "2026-10-24",
       "source": "slickcharts.com"
     },
     "buffett": {
@@ -45,19 +45,19 @@
       "rank": 100
     },
     "stoxxDD": {
-      "value": -2.91,
-      "date": "2026-10-22",
-      "last": 637.74,
+      "value": -3.21,
+      "date": "2026-10-23",
+      "last": 635.77,
       "high": 656.86,
       "highDate": "2026-08",
-      "chg1m": -0.78,
-      "weeklyClose": 637.74,
-      "weeklyDate": "2026-10-22",
+      "chg1m": -0.65,
+      "weeklyClose": 635.77,
+      "weeklyDate": "2026-10-23",
       "source": "abcbourse + historique du robot"
     },
     "bund10y": {
-      "value": 3.43,
-      "date": "2026-10-21",
+      "value": 3.38,
+      "date": "2026-10-22",
       "source": "BCE, taux 10 ans zone euro AAA"
     },
     "euCpi": {
@@ -66,13 +66,13 @@
       "source": "HICP zone euro sur 12 mois (Eurostat EA TOTAL)"
     },
     "kospiDD": {
-      "value": -40.57,
+      "value": -39.11,
       "date": "2026-10-23",
-      "last": 5416.35,
+      "last": 5550.3,
       "high": 9114.55,
       "highDate": "2026-06-22",
-      "chg1m": -23.51,
-      "weeklyClose": 5416.35,
+      "chg1m": -21.62,
+      "weeklyClose": 5550.3,
       "weeklyDate": "2026-10-23",
       "source": "Kospi (Naver), source officielle"
     },
