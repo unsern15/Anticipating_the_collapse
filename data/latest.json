@@ -1,24 +1,24 @@
 {
-  "updated": "2026-10-27T01:37:06Z",
+  "updated": "2026-10-28T01:38:16Z",
   "values": {
     "vix": {
-      "value": 18.39,
-      "date": "2026-10-26",
+      "value": 17.52,
+      "date": "2026-10-27",
       "source": "Cboe VIX"
     },
     "vixTerm": {
-      "value": -0.47,
-      "date": "2026-10-26",
+      "value": -0.87,
+      "date": "2026-10-27",
       "source": "Cboe VIX9D - VIX"
     },
     "hyStruct": {
-      "value": 3.38,
-      "date": "2026-10-23",
+      "value": 3.3,
+      "date": "2026-10-26",
       "source": "FRED BAMLH0A0HYM2"
     },
     "hyAccel": {
-      "value": 7.0,
-      "date": "2026-10-23",
+      "value": 1.0,
+      "date": "2026-10-26",
       "source": "FRED BAMLH0A0HYM2, 5 séances"
     },
     "usCpi": {
@@ -27,13 +27,13 @@
       "source": "BLS, CPI sur 12 mois"
     },
     "us10y": {
-      "value": 5.0,
-      "date": "2026-10-26",
+      "value": 4.99,
+      "date": "2026-10-27",
       "source": "Trésor US"
     },
     "concentration": {
-      "value": 38.1,
-      "date": "2026-10-27",
+      "value": 38.2,
+      "date": "2026-10-28",
       "source": "slickcharts.com"
     },
     "buffett": {
@@ -45,19 +45,19 @@
       "rank": 100
     },
     "stoxxDD": {
-      "value": -2.47,
-      "date": "2026-10-26",
-      "last": 640.66,
+      "value": -2.01,
+      "date": "2026-10-27",
+      "last": 643.68,
       "high": 656.86,
       "highDate": "2026-08",
-      "chg1m": 0.31,
+      "chg1m": 0.79,
       "weeklyClose": 635.77,
       "weeklyDate": "2026-10-23",
       "source": "abcbourse + historique du robot"
     },
     "bund10y": {
       "value": 3.37,
-      "date": "2026-10-23",
+      "date": "2026-10-26",
       "source": "BCE, taux 10 ans zone euro AAA"
     },
     "euCpi": {
@@ -66,23 +66,23 @@
       "source": "HICP zone euro sur 12 mois (Eurostat EA TOTAL)"
     },
     "kospiDD": {
-      "value": -37.36,
-      "date": "2026-10-27",
-      "last": 5709.13,
+      "value": -34.5,
+      "date": "2026-10-28",
+      "last": 5970.37,
       "high": 9114.55,
       "highDate": "2026-06-22",
-      "chg1m": -19.37,
+      "chg1m": -13.34,
       "weeklyClose": 5550.3,
       "weeklyDate": "2026-10-23",
       "source": "Kospi (Naver), source officielle"
     },
     "taiexDD": {
-      "value": -7.59,
-      "date": "2026-10-22",
-      "last": 46041.43,
+      "value": -7.48,
+      "date": "2026-10-27",
+      "last": 46096.23,
       "high": 49822.55,
       "highDate": "2026-10-06",
-      "chg1m": -3.68,
+      "chg1m": -4.02,
       "weeklyClose": 46041.43,
       "weeklyDate": "2026-10-22",
       "source": "Taiex (TWSE), source officielle"
