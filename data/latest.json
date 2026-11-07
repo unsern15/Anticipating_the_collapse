@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-06T02:48:07Z",
+  "updated": "2026-11-07T02:20:15Z",
   "values": {
     "vix": {
       "value": 28.18,
@@ -12,13 +12,13 @@
       "source": "Cboe VIX9D - VIX"
     },
     "hyStruct": {
-      "value": 3.32,
-      "date": "2026-11-04",
+      "value": 3.48,
+      "date": "2026-11-05",
       "source": "FRED BAMLH0A0HYM2"
     },
     "hyAccel": {
-      "value": 18.0,
-      "date": "2026-11-04",
+      "value": 22.0,
+      "date": "2026-11-05",
       "source": "FRED BAMLH0A0HYM2, 5 séances"
     },
     "usCpi": {
@@ -27,13 +27,13 @@
       "source": "BLS, CPI sur 12 mois"
     },
     "us10y": {
-      "value": 4.84,
-      "date": "2026-11-05",
+      "value": 4.86,
+      "date": "2026-11-06",
       "source": "Trésor US"
     },
     "concentration": {
-      "value": 37.6,
-      "date": "2026-11-06",
+      "value": 37.7,
+      "date": "2026-11-07",
       "source": "slickcharts.com"
     },
     "buffett": {
@@ -45,19 +45,19 @@
       "rank": 100
     },
     "stoxxDD": {
-      "value": -0.38,
-      "date": "2026-11-05",
-      "last": 654.87,
+      "value": -1.38,
+      "date": "2026-11-06",
+      "last": 648.33,
       "high": 657.4,
       "highDate": "2026-11-04",
       "chg1m": 2.87,
-      "weeklyClose": 654.87,
-      "weeklyDate": "2026-11-05",
+      "weeklyClose": 648.33,
+      "weeklyDate": "2026-11-06",
       "source": "abcbourse + historique du robot"
     },
     "bund10y": {
-      "value": 3.34,
-      "date": "2026-11-04",
+      "value": 3.29,
+      "date": "2026-11-05",
       "source": "BCE, taux 10 ans zone euro AAA"
     },
     "euCpi": {
@@ -66,27 +66,18 @@
       "source": "HICP zone euro sur 12 mois (Eurostat EA TOTAL)"
     },
     "kospiDD": {
-      "value": -43.38,
+      "value": -44.49,
       "date": "2026-11-06",
-      "last": 5161.02,
+      "last": 5059.69,
       "high": 9114.55,
       "highDate": "2026-06-22",
-      "chg1m": -24.15,
-      "weeklyClose": 5161.02,
+      "chg1m": -25.64,
+      "weeklyClose": 5059.69,
       "weeklyDate": "2026-11-06",
       "source": "Kospi (Naver), source officielle"
-    },
-    "taiexDD": {
-      "value": -16.55,
-      "date": "2026-11-05",
-      "last": 41574.72,
-      "high": 49822.55,
-      "highDate": "2026-10-06",
-      "chg1m": -16.55,
-      "weeklyClose": 41574.72,
-      "weeklyDate": "2026-11-05",
-      "source": "Taiex (TWSE), source officielle"
     }
   },
-  "errors": {}
+  "errors": {
+    "taiexDD": "RuntimeError: TimeoutError: The read operation timed out | RuntimeError: HTTPError: HTTP Error 429: Too Many Requests | HTTPError: HTTP Error 429: To"
+  }
 }
