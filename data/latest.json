@@ -1,14 +1,14 @@
 {
-  "updated": "2026-11-11T02:12:14Z",
+  "updated": "2026-11-12T03:18:59Z",
   "values": {
     "vix": {
-      "value": 19.92,
-      "date": "2026-11-09",
+      "value": 17.49,
+      "date": "2026-11-11",
       "source": "Cboe VIX"
     },
     "vixTerm": {
-      "value": -0.04,
-      "date": "2026-11-09",
+      "value": -1.45,
+      "date": "2026-11-11",
       "source": "Cboe VIX9D - VIX"
     },
     "hyStruct": {
@@ -32,8 +32,8 @@
       "source": "Trésor US"
     },
     "concentration": {
-      "value": 37.3,
-      "date": "2026-11-11",
+      "value": 37.2,
+      "date": "2026-11-12",
       "source": "slickcharts.com"
     },
     "buffett": {
@@ -46,19 +46,19 @@
     },
     "stoxxDD": {
       "value": 0.0,
-      "date": "2026-11-10",
-      "last": 658.32,
-      "high": 658.32,
-      "highDate": "2026-11-10",
-      "chg1m": 4.24,
+      "date": "2026-11-11",
+      "last": 663.05,
+      "high": 663.05,
+      "highDate": "2026-11-11",
+      "chg1m": 4.31,
       "weeklyClose": 648.33,
       "weeklyDate": "2026-11-06",
       "source": "abcbourse + historique du robot"
     },
     "bund10y": {
-      "value": 3.47,
-      "date": "2026-09-01",
-      "source": "FRED Bund 10 ans (moyenne mensuelle)"
+      "value": 3.33,
+      "date": "2026-11-10",
+      "source": "BCE, taux 10 ans zone euro AAA"
     },
     "euCpi": {
       "value": 4.0,
@@ -66,23 +66,23 @@
       "source": "HICP zone euro sur 12 mois (Eurostat EA TOTAL)"
     },
     "kospiDD": {
-      "value": -42.15,
-      "date": "2026-11-11",
-      "last": 5273.04,
+      "value": -40.46,
+      "date": "2026-11-12",
+      "last": 5427.15,
       "high": 9114.55,
       "highDate": "2026-06-22",
-      "chg1m": -17.41,
+      "chg1m": -10.08,
       "weeklyClose": 5059.69,
       "weeklyDate": "2026-11-06",
       "source": "Kospi (Naver), source officielle"
     },
     "taiexDD": {
-      "value": -14.27,
-      "date": "2026-11-10",
-      "last": 42711.92,
+      "value": -11.17,
+      "date": "2026-11-11",
+      "last": 44257.15,
       "high": 49822.55,
       "highDate": "2026-10-06",
-      "chg1m": -13.39,
+      "chg1m": -10.23,
       "weeklyClose": 39701.64,
       "weeklyDate": "2026-11-06",
       "source": "Taiex (TWSE), source officielle"
